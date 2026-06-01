@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>技術分析測試-完美同步最終版</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --primary: #1e40af; --bg: #f1f5f9; --win: #dc2626; --loss: #16a34a; }
+        body { font-family: sans-serif; background: var(--bg); margin: 0; padding: 0; color: #1e293b; }
+        .nav-tabs { background: #0f172a; padding: 10px; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; position: sticky; top: 0; z-index: 1000; }
+        .tab-btn { padding: 8px 16px; border: none; background: #334155; color: white; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        .tab-btn.active { background: #2563eb; }
+        .container { max-width: 1200px; margin: 20px auto; background: white; padding: 20px; border-radius: 12px; }
+        .page { display: none; } .page.active { display: block; }
+        .control-panel { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #e2e8f0; }
+        .param-group { display: flex; flex-direction: column; gap: 4px; }
+        .param-group label { font-size: 11px; font-weight: bold; }
+        .param-group input, .param-group select { padding: 6px; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 12px; }
+        .section-title { grid-column: 1 / -1; font-size: 12px; color: #1e40af; border-bottom: 1px solid #e2e8f0; margin-top: 10px; font-weight: bold; }
+        .drop-zone { border: 2px dashed #2563eb; padding: 30px; text-align: center; border-radius: 8px; cursor: pointer; background: #eff6ff; margin-bottom: 20px; }
+        .dashboard { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+        .stat-card { border: 1px solid #e2e8f0; padding: 10px; border-radius: 6px; text-align: center; }
+        .stat-card b { font-size: 10px; color: #64748b; display: block; }
+        .stat-card span { font-size: 1.1em; font-weight: bold; }
+        .win { color: var(--win); } .loss { color: var(--loss); } 
+        .chart-wrap { height: 400px; margin-bottom: 20px; border: 1px solid #e2e8f0; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        th, td { padding: 8px; border-bottom: 1px solid #f1f5f9; text-align: center; }
+        .buy-row { background: #fff1f0; } .sell-row { background: #f0fdf4; }
+    </style>
+</head>
+<body>
+<nav class="nav-tabs">
+<button class="tab-btn active" onclick="switchTab(event, 'tab_2330')">2330_台積電</button>
+<button class="tab-btn" onclick="switchTab(event, 'tab_3443')">3443_創意</button>
+<button class="tab-btn" onclick="switchTab(event, 'tab_2360')">2360_致茂</button>
+<button class="tab-btn" onclick="switchTab(event, 'tab_6205')">6205_詮欣</button>
+<button class="tab-btn" onclick="switchTab(event, 'tab_6669')">6669_緯穎</button>
+<button class="tab-btn" onclick="switchTab(event, 'tab_3189')">3189_景碩</button>
+<button class="tab-btn" onclick="switchTab(event, 'tab_3455')">3455_由田</button>
+<button class="tab-btn" onclick="switchTab(event, 'tab_3535')">3535_晶彩科</button>
+<button class="tab-btn" onclick="switchTab(event, 'tab_4908')">4908_前鼎</button>
+<button class="tab-btn" onclick="switchTab(event, 'tab_6269')">6269_台郡</button>
+<button class="tab-btn" onclick="switchTab(event, 'tab_4746')">4746_台耀</button>
+<button class="tab-btn" onclick="switchTab(event, 'tab_6261')">6261_久元</button>
+</nav>
+<div id="tab_2330" class="page active"><div class="container">
+    <h3 style="text-align:center;">台積電 (2330) - V4_MA</h3>
+    <div class="control-panel"><div class="section-title">資金與基礎出口</div>
+        <div class="param-group"><label>張數</label><input type="number" id="s2330_sh" value="1"></div>
+        <div class="param-group"><label>停利 (%)</label><input type="number" id="s2330_tp" value="16.0"></div>
+        <div class="param-group"><label>停損 (%)</label><input type="number" id="s2330_sl" value="9.0"></div>
+        <div class="section-title">進場過濾</div>
+        <div class="param-group"><label>均線</label><select id="s2330_ma"><option value="ma20" selected>MA20</option><option value="ma60" >MA60</option></select></div>
+        <div class="param-group"><label>MACD ></label><input type="number" id="s2330_macd" value="5.3"></div>
+        <div class="param-group"><label>MFI ></label><input type="number" id="s2330_mfi" value="30"></div></div>
+    <div class="drop-zone" id="s2330_drop">將 2330 檔案拖入此處或點擊上傳</div>
+    <div id="s2330_dash" class="dashboard"></div>
+    <div class="chart-wrap"><canvas id="s2330_chart"></canvas></div>
+    <table id="s2330_table"><thead><tr><th>類型</th><th>日期</th><th>價格</th><th>原因</th><th>損益</th></tr></thead><tbody></tbody></table>
+    </div></div><div id="tab_3443" class="page"><div class="container">
+    <h3 style="text-align:center;">創意 (3443) - V38</h3>
+    <div class="control-panel"><div class="section-title">鎖利出口</div>
+        <div class="param-group"><label>張數</label><input type="number" id="s3443_sh" value="1"></div>
+        <div class="param-group"><label>觸發鎖利</label><input type="number" id="s3443_tri" value="2.5"></div>
+        <div class="param-group"><label>保證獲利</label><input type="number" id="s3443_lk" value="3.5"></div>
+        <div class="param-group"><label>硬性停損</label><input type="number" id="s3443_st" value="3.0"></div>
+        <div class="section-title">進場過濾</div>
+        <div class="param-group"><label>均線</label><select id="s3443_ma"><option value="ma20">MA20</option><option value="ma60" selected>MA60</option></select></div></div>
+    <div class="drop-zone" id="s3443_drop">將 3443 檔案拖入此處或點擊上傳</div>
+    <div id="s3443_dash" class="dashboard"></div>
+    <div class="chart-wrap"><canvas id="s3443_chart"></canvas></div>
+    <table id="s3443_table"><thead><tr><th>類型</th><th>日期</th><th>價格</th><th>原因</th><th>損益</th></tr></thead><tbody></tbody></table>
+    </div></div><div id="tab_2360" class="page"><div class="container">
+    <h3 style="text-align:center;">致茂 (2360) - V4</h3>
+    <div class="control-panel"><div class="section-title">資金與基礎出口</div>
+        <div class="param-group"><label>張數</label><input type="number" id="s2360_sh" value="1"></div>
+        <div class="param-group"><label>停利 (%)</label><input type="number" id="s2360_tp" value="18.9"></div>
+        <div class="param-group"><label>停損 (%)</label><input type="number" id="s2360_sl" value="8.0"></div>
+        <div class="section-title">進場過濾</div>
+        <div class="param-group"><label>均線</label><select id="s2360_ma"><option value="ma20" >MA20</option><option value="ma60" >MA60</option></select></div>
+        <div class="param-group"><label>MACD ></label><input type="number" id="s2360_macd" value="2.1"></div>
+        <div class="param-group"><label>MFI ></label><input type="number" id="s2360_mfi" value="30.0"></div></div>
+    <div class="drop-zone" id="s2360_drop">將 2360 檔案拖入此處或點擊上傳</div>
+    <div id="s2360_dash" class="dashboard"></div>
+    <div class="chart-wrap"><canvas id="s2360_chart"></canvas></div>
+    <table id="s2360_table"><thead><tr><th>類型</th><th>日期</th><th>價格</th><th>原因</th><th>損益</th></tr></thead><tbody></tbody></table>
+    </div></div><div id="tab_6205" class="page"><div class="container">
+    <h3 style="text-align:center;">詮欣 (6205) - V4</h3>
+    <div class="control-panel"><div class="section-title">資金與基礎出口</div>
+        <div class="param-group"><label>張數</label><input type="number" id="s6205_sh" value="1"></div>
+        <div class="param-group"><label>停利 (%)</label><input type="number" id="s6205_tp" value="18.9"></div>
+        <div class="param-group"><label>停損 (%)</label><input type="number" id="s6205_sl" value="8.0"></div>
+        <div class="section-title">進場過濾</div>
+        <div class="param-group"><label>均線</label><select id="s6205_ma"><option value="ma20" >MA20</option><option value="ma60" >MA60</option></select></div>
+        <div class="param-group"><label>MACD ></label><input type="number" id="s6205_macd" value="2.1"></div>
+        <div class="param-group"><label>MFI ></label><input type="number" id="s6205_mfi" value="30.0"></div></div>
+    <div class="drop-zone" id="s6205_drop">將 6205 檔案拖入此處或點擊上傳</div>
+    <div id="s6205_dash" class="dashboard"></div>
+    <div class="chart-wrap"><canvas id="s6205_chart"></canvas></div>
+    <table id="s6205_table"><thead><tr><th>類型</th><th>日期</th><th>價格</th><th>原因</th><th>損益</th></tr></thead><tbody></tbody></table>
+    </div></div><div id="tab_6669" class="page"><div class="container">
+    <h3 style="text-align:center;">緯穎 (6669) - V_Rebound</h3>
+    <div class="control-panel"></div>
+    <div class="drop-zone" id="s6669_drop">將 6669 檔案拖入此處或點擊上傳</div>
+    <div id="s6669_dash" class="dashboard"></div>
+    <div class="chart-wrap"><canvas id="s6669_chart"></canvas></div>
+    <table id="s6669_table"><thead><tr><th>類型</th><th>日期</th><th>價格</th><th>原因</th><th>損益</th></tr></thead><tbody></tbody></table>
+    </div></div><div id="tab_3189" class="page"><div class="container">
+    <h3 style="text-align:center;">景碩 (3189) - V_Rebound</h3>
+    <div class="control-panel"></div>
+    <div class="drop-zone" id="s3189_drop">將 3189 檔案拖入此處或點擊上傳</div>
+    <div id="s3189_dash" class="dashboard"></div>
+    <div class="chart-wrap"><canvas id="s3189_chart"></canvas></div>
+    <table id="s3189_table"><thead><tr><th>類型</th><th>日期</th><th>價格</th><th>原因</th><th>損益</th></tr></thead><tbody></tbody></table>
+    </div></div><div id="tab_3455" class="page"><div class="container">
+    <h3 style="text-align:center;">由田 (3455) - V_Rebound</h3>
+    <div class="control-panel"></div>
+    <div class="drop-zone" id="s3455_drop">將 3455 檔案拖入此處或點擊上傳</div>
+    <div id="s3455_dash" class="dashboard"></div>
+    <div class="chart-wrap"><canvas id="s3455_chart"></canvas></div>
+    <table id="s3455_table"><thead><tr><th>類型</th><th>日期</th><th>價格</th><th>原因</th><th>損益</th></tr></thead><tbody></tbody></table>
+    </div></div><div id="tab_3535" class="page"><div class="container">
+    <h3 style="text-align:center;">晶彩科 (3535) - V_Rebound</h3>
+    <div class="control-panel"></div>
+    <div class="drop-zone" id="s3535_drop">將 3535 檔案拖入此處或點擊上傳</div>
+    <div id="s3535_dash" class="dashboard"></div>
+    <div class="chart-wrap"><canvas id="s3535_chart"></canvas></div>
+    <table id="s3535_table"><thead><tr><th>類型</th><th>日期</th><th>價格</th><th>原因</th><th>損益</th></tr></thead><tbody></tbody></table>
+    </div></div><div id="tab_4908" class="page"><div class="container">
+    <h3 style="text-align:center;">前鼎 (4908) - V_Rebound</h3>
+    <div class="control-panel"></div>
+    <div class="drop-zone" id="s4908_drop">將 4908 檔案拖入此處或點擊上傳</div>
+    <div id="s4908_dash" class="dashboard"></div>
+    <div class="chart-wrap"><canvas id="s4908_chart"></canvas></div>
+    <table id="s4908_table"><thead><tr><th>類型</th><th>日期</th><th>價格</th><th>原因</th><th>損益</th></tr></thead><tbody></tbody></table>
+    </div></div><div id="tab_6269" class="page"><div class="container">
+    <h3 style="text-align:center;">台郡 (6269) - V_Rebound</h3>
+    <div class="control-panel"></div>
+    <div class="drop-zone" id="s6269_drop">將 6269 檔案拖入此處或點擊上傳</div>
+    <div id="s6269_dash" class="dashboard"></div>
+    <div class="chart-wrap"><canvas id="s6269_chart"></canvas></div>
+    <table id="s6269_table"><thead><tr><th>類型</th><th>日期</th><th>價格</th><th>原因</th><th>損益</th></tr></thead><tbody></tbody></table>
+    </div></div><div id="tab_4746" class="page"><div class="container">
+    <h3 style="text-align:center;">台耀 (4746) - V_Dip_Buy</h3>
+    <div class="control-panel"></div>
+    <div class="drop-zone" id="s4746_drop">將 4746 檔案拖入此處或點擊上傳</div>
+    <div id="s4746_dash" class="dashboard"></div>
+    <div class="chart-wrap"><canvas id="s4746_chart"></canvas></div>
+    <table id="s4746_table"><thead><tr><th>類型</th><th>日期</th><th>價格</th><th>原因</th><th>損益</th></tr></thead><tbody></tbody></table>
+    </div></div><div id="tab_6261" class="page"><div class="container">
+    <h3 style="text-align:center;">久元 (6261) - V_Dip_Buy</h3>
+    <div class="control-panel"></div>
+    <div class="drop-zone" id="s6261_drop">將 6261 檔案拖入此處或點擊上傳</div>
+    <div id="s6261_dash" class="dashboard"></div>
+    <div class="chart-wrap"><canvas id="s6261_chart"></canvas></div>
+    <table id="s6261_table"><thead><tr><th>類型</th><th>日期</th><th>價格</th><th>原因</th><th>損益</th></tr></thead><tbody></tbody></table>
+    </div></div>
+<script>
+window.dataStore = {}; window.charts = {};
+const p=(v)=>v?parseFloat(String(v).replace(/[↑↓,%\s]/g,''))||0:0;
+function switchTab(e, id) {
+    document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    e.currentTarget.classList.add('active');
+}
+const parseData=(rows)=>rows.filter(r=>r[0]&&(String(r[0]).includes('/')||/^\d{8}$/.test(r[0]))).map(r=>({
+    date:String(r[0]).trim(), open:p(r[1]), high:p(r[2]), low:p(r[3]), close:p(r[4]),
+    ma20:p(r[7]), ma60:p(r[8]), eom:p(r[10]), eomSig:p(r[11]), mfi:p(r[12]), macd:p(r[14])
+}));
+function updateUI(code, trd, tot, mCap, ds, bi, si) {
+    const sls=trd.filter(t=>t.type==='賣出'), pnls=sls.map(t=>t.pnl), cnt=sls.length;
+    const win=pnls.filter(v=>v>0).length, mxP=cnt?Math.max(...pnls):0, mxL=cnt?Math.min(...pnls):0, avg=cnt?tot/cnt:0;
+    document.getElementById('s'+code+'_dash').innerHTML = `<div class="stat-card"><b>累積淨損益</b><span class="${tot>=0?'win':'loss'}">$${Math.round(tot).toLocaleString()}</span></div><div class="stat-card"><b>所需本金</b><span>$${Math.round(mCap).toLocaleString()}</span></div><div class="stat-card"><b>勝率</b><span>${cnt}次/${cnt>0?(win/cnt*100).toFixed(1):0}%</span></div><div class="stat-card"><b>平均損益</b><span>$${Math.round(avg).toLocaleString()}</span></div>`;
+    document.querySelector('#s'+code+'_table tbody').innerHTML = trd.map(t=>`<tr class="${t.type==='買入'?'buy-row':'sell-row'}"><td><b>${t.type}</b></td><td>${t.date}</td><td>${t.price.toFixed(1)}</td><td>${t.info}</td><td class="${t.pnl>0?'win':(t.pnl<0?'loss':'')}">${t.pnl?Math.round(t.pnl).toLocaleString():'-'}</td></tr>`).reverse().join('');
+    const ctx=document.getElementById('s'+code+'_chart'); if(window.charts[code]) window.charts[code].destroy();
+    window.charts[code]=new Chart(ctx,{type:'line',data:{labels:ds.map(d=>d.date),datasets:[{label:'收盤',data:ds.map(d=>d.close),borderColor:'#475569',borderWidth:1,pointRadius:0},{label:'買',data:bi.map((v,i)=>v?ds[i].close:null),backgroundColor:'red',pointRadius:4,showLine:false},{label:'賣',data:si.map((v,i)=>v?ds[i].close:null),backgroundColor:'green',pointRadius:4,showLine:false}]},options:{maintainAspectRatio:false,plugins:{legend:{display:false}}}});
+}
+window.onload = () => {
+
+    try {
+        const btn = document.getElementById('s2330_drop');
+        if(btn) btn.onclick = () => {
+            const inp = document.createElement('input'); inp.type='file';
+            inp.onchange=(e)=>{
+                const f=e.target.files[0]; if(!f) return;
+                const r=new FileReader(); r.onload=(ev)=>{
+                    const wb=XLSX.read(ev.target.result,{type:'array'});
+                    window.dataStore['2330'] = parseData(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1}));
+                    run_2330();
+                }; r.readAsArrayBuffer(f);
+            }; inp.click();
+        };
+        window.run_2330 = () => {
+            const ds = window.dataStore['2330']; if(!ds) return;
+            const sh = parseInt(document.getElementById('s2330_sh').value)*1000;
+            // logic extraction here
+            let trd=[], hold=false, bp=0, tot=0, mCap=0, mPrf=0;
+            let bi=new Array(ds.length).fill(null), si=new Array(ds.length).fill(null);
+            for(let i=1; i<ds.length-1; i++){
+                let c=ds[i], n=ds[i+1], p=ds[i-1];
+                let maV=(document.getElementById('s2330_ma').value==='ma60'?c.ma60:c.ma20); let tp=parseFloat(document.getElementById('s2330_tp').value)/100, sl=parseFloat(document.getElementById('s2330_sl').value)/100, macd=parseFloat(document.getElementById('s2330_macd').value), mfi=parseFloat(document.getElementById('s2330_mfi').value); if(!hold){ if(c.close>maV && c.eom>c.eomSig && c.macd>macd && c.mfi>mfi){ hold=true; bp=n.open; bi[i+1]=1; mCap=Math.max(mCap,bp*sh); trd.push({type:'買入',date:n.date,price:bp,info:'V4進場'}); } } else { let pnlR=(n.open-bp)/bp; if(pnlR>=tp || pnlR<=-sl){ hold=false; let ep=n.open; let d=(ep-bp)*sh; tot+=d; si[i+1]=1; trd.push({type:'賣出',date:n.date,price:ep,info:pnlR>0?'停利':'停損',pnl:d,entP:bp}); } }
+            }
+            updateUI('2330', trd, tot, mCap, ds, bi, si);
+        };
+        document.querySelectorAll('#tab_2330 input, #tab_2330 select').forEach(el=>{ el.oninput=()=>window.run_2330(); });
+    } catch(e) { console.error(e); }
+    
+    try {
+        const btn = document.getElementById('s3443_drop');
+        if(btn) btn.onclick = () => {
+            const inp = document.createElement('input'); inp.type='file';
+            inp.onchange=(e)=>{
+                const f=e.target.files[0]; if(!f) return;
+                const r=new FileReader(); r.onload=(ev)=>{
+                    const wb=XLSX.read(ev.target.result,{type:'array'});
+                    window.dataStore['3443'] = parseData(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1}));
+                    run_3443();
+                }; r.readAsArrayBuffer(f);
+            }; inp.click();
+        };
+        window.run_3443 = () => {
+            const ds = window.dataStore['3443']; if(!ds) return;
+            const sh = parseInt(document.getElementById('s3443_sh').value)*1000;
+            // logic extraction here
+            let trd=[], hold=false, bp=0, tot=0, mCap=0, mPrf=0;
+            let bi=new Array(ds.length).fill(null), si=new Array(ds.length).fill(null);
+            for(let i=1; i<ds.length-1; i++){
+                let c=ds[i], n=ds[i+1], p=ds[i-1];
+                let tri=parseFloat(document.getElementById('s3443_tri').value)/100, lk=parseFloat(document.getElementById('s3443_lk').value)/100, st=parseFloat(document.getElementById('s3443_st').value)/100; if(!hold){ if(c.eom>c.eomSig && p.eom<=p.eomSig && c.close>c.ma60 && c.macd>0){ hold=true; bp=n.open; bi[i+1]=1; mPrf=0; mCap=Math.max(mCap,bp*sh); trd.push({type:'買入',date:n.date,price:bp,info:'V38進場'}); } } else { let curR=(c.close-bp)/bp; mPrf=Math.max(mPrf,curR); let nOpenR=(n.open-bp)/bp; let exit=false, rsn=''; if(mPrf>=tri && nOpenR<=lk){ exit=true; rsn='獲利鎖定'; } else if(c.eom<c.eomSig){ exit=true; rsn='動能轉弱'; } else if(nOpenR<-st){ exit=true; rsn='硬停損'; } if(exit){ hold=false; let tpP=bp*(1+lk); let ep=(rsn==='獲利鎖定' && tpP<=n.high && tpP>=n.low)?tpP:n.open; let d=(ep-bp)*sh; tot+=d; si[i+1]=1; trd.push({type:'賣出',date:n.date,price:ep,info:rsn,pnl:d,entP:bp}); } }
+            }
+            updateUI('3443', trd, tot, mCap, ds, bi, si);
+        };
+        document.querySelectorAll('#tab_3443 input, #tab_3443 select').forEach(el=>{ el.oninput=()=>window.run_3443(); });
+    } catch(e) { console.error(e); }
+    
+    try {
+        const btn = document.getElementById('s2360_drop');
+        if(btn) btn.onclick = () => {
+            const inp = document.createElement('input'); inp.type='file';
+            inp.onchange=(e)=>{
+                const f=e.target.files[0]; if(!f) return;
+                const r=new FileReader(); r.onload=(ev)=>{
+                    const wb=XLSX.read(ev.target.result,{type:'array'});
+                    window.dataStore['2360'] = parseData(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1}));
+                    run_2360();
+                }; r.readAsArrayBuffer(f);
+            }; inp.click();
+        };
+        window.run_2360 = () => {
+            const ds = window.dataStore['2360']; if(!ds) return;
+            const sh = parseInt(document.getElementById('s2360_sh').value)*1000;
+            // logic extraction here
+            let trd=[], hold=false, bp=0, tot=0, mCap=0, mPrf=0;
+            let bi=new Array(ds.length).fill(null), si=new Array(ds.length).fill(null);
+            for(let i=1; i<ds.length-1; i++){
+                let c=ds[i], n=ds[i+1], p=ds[i-1];
+                let maV=(document.getElementById('s2360_ma').value==='ma60'?c.ma60:c.ma20); let tp=parseFloat(document.getElementById('s2360_tp').value)/100, sl=parseFloat(document.getElementById('s2360_sl').value)/100, macd=parseFloat(document.getElementById('s2360_macd').value), mfi=parseFloat(document.getElementById('s2360_mfi').value); if(!hold){ if(c.close>maV && c.eom>c.eomSig && c.macd>macd && c.mfi>mfi){ hold=true; bp=n.open; bi[i+1]=1; mCap=Math.max(mCap,bp*sh); trd.push({type:'買入',date:n.date,price:bp,info:'V4進場'}); } } else { let pnlR=(n.open-bp)/bp; if(pnlR>=tp || pnlR<=-sl){ hold=false; let ep=n.open; let d=(ep-bp)*sh; tot+=d; si[i+1]=1; trd.push({type:'賣出',date:n.date,price:ep,info:pnlR>0?'停利':'停損',pnl:d,entP:bp}); } }
+            }
+            updateUI('2360', trd, tot, mCap, ds, bi, si);
+        };
+        document.querySelectorAll('#tab_2360 input, #tab_2360 select').forEach(el=>{ el.oninput=()=>window.run_2360(); });
+    } catch(e) { console.error(e); }
+    
+    try {
+        const btn = document.getElementById('s6205_drop');
+        if(btn) btn.onclick = () => {
+            const inp = document.createElement('input'); inp.type='file';
+            inp.onchange=(e)=>{
+                const f=e.target.files[0]; if(!f) return;
+                const r=new FileReader(); r.onload=(ev)=>{
+                    const wb=XLSX.read(ev.target.result,{type:'array'});
+                    window.dataStore['6205'] = parseData(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1}));
+                    run_6205();
+                }; r.readAsArrayBuffer(f);
+            }; inp.click();
+        };
+        window.run_6205 = () => {
+            const ds = window.dataStore['6205']; if(!ds) return;
+            const sh = parseInt(document.getElementById('s6205_sh').value)*1000;
+            // logic extraction here
+            let trd=[], hold=false, bp=0, tot=0, mCap=0, mPrf=0;
+            let bi=new Array(ds.length).fill(null), si=new Array(ds.length).fill(null);
+            for(let i=1; i<ds.length-1; i++){
+                let c=ds[i], n=ds[i+1], p=ds[i-1];
+                let maV=(document.getElementById('s6205_ma').value==='ma60'?c.ma60:c.ma20); let tp=parseFloat(document.getElementById('s6205_tp').value)/100, sl=parseFloat(document.getElementById('s6205_sl').value)/100, macd=parseFloat(document.getElementById('s6205_macd').value), mfi=parseFloat(document.getElementById('s6205_mfi').value); if(!hold){ if(c.close>maV && c.eom>c.eomSig && c.macd>macd && c.mfi>mfi){ hold=true; bp=n.open; bi[i+1]=1; mCap=Math.max(mCap,bp*sh); trd.push({type:'買入',date:n.date,price:bp,info:'V4進場'}); } } else { let pnlR=(n.open-bp)/bp; if(pnlR>=tp || pnlR<=-sl){ hold=false; let ep=n.open; let d=(ep-bp)*sh; tot+=d; si[i+1]=1; trd.push({type:'賣出',date:n.date,price:ep,info:pnlR>0?'停利':'停損',pnl:d,entP:bp}); } }
+            }
+            updateUI('6205', trd, tot, mCap, ds, bi, si);
+        };
+        document.querySelectorAll('#tab_6205 input, #tab_6205 select').forEach(el=>{ el.oninput=()=>window.run_6205(); });
+    } catch(e) { console.error(e); }
+    
+    try {
+        const btn = document.getElementById('s6669_drop');
+        if(btn) btn.onclick = () => {
+            const inp = document.createElement('input'); inp.type='file';
+            inp.onchange=(e)=>{
+                const f=e.target.files[0]; if(!f) return;
+                const r=new FileReader(); r.onload=(ev)=>{
+                    const wb=XLSX.read(ev.target.result,{type:'array'});
+                    window.dataStore['6669'] = parseData(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1}));
+                    run_6669();
+                }; r.readAsArrayBuffer(f);
+            }; inp.click();
+        };
+        window.run_6669 = () => {
+            const ds = window.dataStore['6669']; if(!ds) return;
+            const sh = parseInt(document.getElementById('s6669_sh').value)*1000;
+            // logic extraction here
+            let trd=[], hold=false, bp=0, tot=0, mCap=0, mPrf=0;
+            let bi=new Array(ds.length).fill(null), si=new Array(ds.length).fill(null);
+            for(let i=1; i<ds.length-1; i++){
+                let c=ds[i], n=ds[i+1], p=ds[i-1];
+                let tri=parseFloat(document.getElementById('s6669_tri').value)/100, lk=parseFloat(document.getElementById('s6669_lk').value)/100, st=parseFloat(document.getElementById('s6669_st').value)/100; if(!hold){ if(c.eom>c.eomSig && p.eom<=p.eomSig && c.close>c.ma60 && c.macd>0){ hold=true; bp=n.open; bi[i+1]=1; mPrf=0; mCap=Math.max(mCap,bp*sh); trd.push({type:'買入',date:n.date,price:bp,info:'V38進場'}); } } else { let curR=(c.close-bp)/bp; mPrf=Math.max(mPrf,curR); let nOpenR=(n.open-bp)/bp; let exit=false, rsn=''; if(mPrf>=tri && nOpenR<=lk){ exit=true; rsn='獲利鎖定'; } else if(c.eom<c.eomSig){ exit=true; rsn='動能轉弱'; } else if(nOpenR<-st){ exit=true; rsn='硬停損'; } if(exit){ hold=false; let tpP=bp*(1+lk); let ep=(rsn==='獲利鎖定' && tpP<=n.high && tpP>=n.low)?tpP:n.open; let d=(ep-bp)*sh; tot+=d; si[i+1]=1; trd.push({type:'賣出',date:n.date,price:ep,info:rsn,pnl:d,entP:bp}); } }
+            }
+            updateUI('6669', trd, tot, mCap, ds, bi, si);
+        };
+        document.querySelectorAll('#tab_6669 input, #tab_6669 select').forEach(el=>{ el.oninput=()=>window.run_6669(); });
+    } catch(e) { console.error(e); }
+    
+    try {
+        const btn = document.getElementById('s3189_drop');
+        if(btn) btn.onclick = () => {
+            const inp = document.createElement('input'); inp.type='file';
+            inp.onchange=(e)=>{
+                const f=e.target.files[0]; if(!f) return;
+                const r=new FileReader(); r.onload=(ev)=>{
+                    const wb=XLSX.read(ev.target.result,{type:'array'});
+                    window.dataStore['3189'] = parseData(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1}));
+                    run_3189();
+                }; r.readAsArrayBuffer(f);
+            }; inp.click();
+        };
+        window.run_3189 = () => {
+            const ds = window.dataStore['3189']; if(!ds) return;
+            const sh = parseInt(document.getElementById('s3189_sh').value)*1000;
+            // logic extraction here
+            let trd=[], hold=false, bp=0, tot=0, mCap=0, mPrf=0;
+            let bi=new Array(ds.length).fill(null), si=new Array(ds.length).fill(null);
+            for(let i=1; i<ds.length-1; i++){
+                let c=ds[i], n=ds[i+1], p=ds[i-1];
+                let tri=parseFloat(document.getElementById('s3189_tri').value)/100, lk=parseFloat(document.getElementById('s3189_lk').value)/100, st=parseFloat(document.getElementById('s3189_st').value)/100; if(!hold){ if(c.eom>c.eomSig && p.eom<=p.eomSig && c.close>c.ma60 && c.macd>0){ hold=true; bp=n.open; bi[i+1]=1; mPrf=0; mCap=Math.max(mCap,bp*sh); trd.push({type:'買入',date:n.date,price:bp,info:'V38進場'}); } } else { let curR=(c.close-bp)/bp; mPrf=Math.max(mPrf,curR); let nOpenR=(n.open-bp)/bp; let exit=false, rsn=''; if(mPrf>=tri && nOpenR<=lk){ exit=true; rsn='獲利鎖定'; } else if(c.eom<c.eomSig){ exit=true; rsn='動能轉弱'; } else if(nOpenR<-st){ exit=true; rsn='硬停損'; } if(exit){ hold=false; let tpP=bp*(1+lk); let ep=(rsn==='獲利鎖定' && tpP<=n.high && tpP>=n.low)?tpP:n.open; let d=(ep-bp)*sh; tot+=d; si[i+1]=1; trd.push({type:'賣出',date:n.date,price:ep,info:rsn,pnl:d,entP:bp}); } }
+            }
+            updateUI('3189', trd, tot, mCap, ds, bi, si);
+        };
+        document.querySelectorAll('#tab_3189 input, #tab_3189 select').forEach(el=>{ el.oninput=()=>window.run_3189(); });
+    } catch(e) { console.error(e); }
+    
+    try {
+        const btn = document.getElementById('s3455_drop');
+        if(btn) btn.onclick = () => {
+            const inp = document.createElement('input'); inp.type='file';
+            inp.onchange=(e)=>{
+                const f=e.target.files[0]; if(!f) return;
+                const r=new FileReader(); r.onload=(ev)=>{
+                    const wb=XLSX.read(ev.target.result,{type:'array'});
+                    window.dataStore['3455'] = parseData(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1}));
+                    run_3455();
+                }; r.readAsArrayBuffer(f);
+            }; inp.click();
+        };
+        window.run_3455 = () => {
+            const ds = window.dataStore['3455']; if(!ds) return;
+            const sh = parseInt(document.getElementById('s3455_sh').value)*1000;
+            // logic extraction here
+            let trd=[], hold=false, bp=0, tot=0, mCap=0, mPrf=0;
+            let bi=new Array(ds.length).fill(null), si=new Array(ds.length).fill(null);
+            for(let i=1; i<ds.length-1; i++){
+                let c=ds[i], n=ds[i+1], p=ds[i-1];
+                let tri=parseFloat(document.getElementById('s3455_tri').value)/100, lk=parseFloat(document.getElementById('s3455_lk').value)/100, st=parseFloat(document.getElementById('s3455_st').value)/100; if(!hold){ if(c.eom>c.eomSig && p.eom<=p.eomSig && c.close>c.ma60 && c.macd>0){ hold=true; bp=n.open; bi[i+1]=1; mPrf=0; mCap=Math.max(mCap,bp*sh); trd.push({type:'買入',date:n.date,price:bp,info:'V38進場'}); } } else { let curR=(c.close-bp)/bp; mPrf=Math.max(mPrf,curR); let nOpenR=(n.open-bp)/bp; let exit=false, rsn=''; if(mPrf>=tri && nOpenR<=lk){ exit=true; rsn='獲利鎖定'; } else if(c.eom<c.eomSig){ exit=true; rsn='動能轉弱'; } else if(nOpenR<-st){ exit=true; rsn='硬停損'; } if(exit){ hold=false; let tpP=bp*(1+lk); let ep=(rsn==='獲利鎖定' && tpP<=n.high && tpP>=n.low)?tpP:n.open; let d=(ep-bp)*sh; tot+=d; si[i+1]=1; trd.push({type:'賣出',date:n.date,price:ep,info:rsn,pnl:d,entP:bp}); } }
+            }
+            updateUI('3455', trd, tot, mCap, ds, bi, si);
+        };
+        document.querySelectorAll('#tab_3455 input, #tab_3455 select').forEach(el=>{ el.oninput=()=>window.run_3455(); });
+    } catch(e) { console.error(e); }
+    
+    try {
+        const btn = document.getElementById('s3535_drop');
+        if(btn) btn.onclick = () => {
+            const inp = document.createElement('input'); inp.type='file';
+            inp.onchange=(e)=>{
+                const f=e.target.files[0]; if(!f) return;
+                const r=new FileReader(); r.onload=(ev)=>{
+                    const wb=XLSX.read(ev.target.result,{type:'array'});
+                    window.dataStore['3535'] = parseData(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1}));
+                    run_3535();
+                }; r.readAsArrayBuffer(f);
+            }; inp.click();
+        };
+        window.run_3535 = () => {
+            const ds = window.dataStore['3535']; if(!ds) return;
+            const sh = parseInt(document.getElementById('s3535_sh').value)*1000;
+            // logic extraction here
+            let trd=[], hold=false, bp=0, tot=0, mCap=0, mPrf=0;
+            let bi=new Array(ds.length).fill(null), si=new Array(ds.length).fill(null);
+            for(let i=1; i<ds.length-1; i++){
+                let c=ds[i], n=ds[i+1], p=ds[i-1];
+                let tri=parseFloat(document.getElementById('s3535_tri').value)/100, lk=parseFloat(document.getElementById('s3535_lk').value)/100, st=parseFloat(document.getElementById('s3535_st').value)/100; if(!hold){ if(c.eom>c.eomSig && p.eom<=p.eomSig && c.close>c.ma60 && c.macd>0){ hold=true; bp=n.open; bi[i+1]=1; mPrf=0; mCap=Math.max(mCap,bp*sh); trd.push({type:'買入',date:n.date,price:bp,info:'V38進場'}); } } else { let curR=(c.close-bp)/bp; mPrf=Math.max(mPrf,curR); let nOpenR=(n.open-bp)/bp; let exit=false, rsn=''; if(mPrf>=tri && nOpenR<=lk){ exit=true; rsn='獲利鎖定'; } else if(c.eom<c.eomSig){ exit=true; rsn='動能轉弱'; } else if(nOpenR<-st){ exit=true; rsn='硬停損'; } if(exit){ hold=false; let tpP=bp*(1+lk); let ep=(rsn==='獲利鎖定' && tpP<=n.high && tpP>=n.low)?tpP:n.open; let d=(ep-bp)*sh; tot+=d; si[i+1]=1; trd.push({type:'賣出',date:n.date,price:ep,info:rsn,pnl:d,entP:bp}); } }
+            }
+            updateUI('3535', trd, tot, mCap, ds, bi, si);
+        };
+        document.querySelectorAll('#tab_3535 input, #tab_3535 select').forEach(el=>{ el.oninput=()=>window.run_3535(); });
+    } catch(e) { console.error(e); }
+    
+    try {
+        const btn = document.getElementById('s4908_drop');
+        if(btn) btn.onclick = () => {
+            const inp = document.createElement('input'); inp.type='file';
+            inp.onchange=(e)=>{
+                const f=e.target.files[0]; if(!f) return;
+                const r=new FileReader(); r.onload=(ev)=>{
+                    const wb=XLSX.read(ev.target.result,{type:'array'});
+                    window.dataStore['4908'] = parseData(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1}));
+                    run_4908();
+                }; r.readAsArrayBuffer(f);
+            }; inp.click();
+        };
+        window.run_4908 = () => {
+            const ds = window.dataStore['4908']; if(!ds) return;
+            const sh = parseInt(document.getElementById('s4908_sh').value)*1000;
+            // logic extraction here
+            let trd=[], hold=false, bp=0, tot=0, mCap=0, mPrf=0;
+            let bi=new Array(ds.length).fill(null), si=new Array(ds.length).fill(null);
+            for(let i=1; i<ds.length-1; i++){
+                let c=ds[i], n=ds[i+1], p=ds[i-1];
+                let tri=parseFloat(document.getElementById('s4908_tri').value)/100, lk=parseFloat(document.getElementById('s4908_lk').value)/100, st=parseFloat(document.getElementById('s4908_st').value)/100; if(!hold){ if(c.eom>c.eomSig && p.eom<=p.eomSig && c.close>c.ma60 && c.macd>0){ hold=true; bp=n.open; bi[i+1]=1; mPrf=0; mCap=Math.max(mCap,bp*sh); trd.push({type:'買入',date:n.date,price:bp,info:'V38進場'}); } } else { let curR=(c.close-bp)/bp; mPrf=Math.max(mPrf,curR); let nOpenR=(n.open-bp)/bp; let exit=false, rsn=''; if(mPrf>=tri && nOpenR<=lk){ exit=true; rsn='獲利鎖定'; } else if(c.eom<c.eomSig){ exit=true; rsn='動能轉弱'; } else if(nOpenR<-st){ exit=true; rsn='硬停損'; } if(exit){ hold=false; let tpP=bp*(1+lk); let ep=(rsn==='獲利鎖定' && tpP<=n.high && tpP>=n.low)?tpP:n.open; let d=(ep-bp)*sh; tot+=d; si[i+1]=1; trd.push({type:'賣出',date:n.date,price:ep,info:rsn,pnl:d,entP:bp}); } }
+            }
+            updateUI('4908', trd, tot, mCap, ds, bi, si);
+        };
+        document.querySelectorAll('#tab_4908 input, #tab_4908 select').forEach(el=>{ el.oninput=()=>window.run_4908(); });
+    } catch(e) { console.error(e); }
+    
+    try {
+        const btn = document.getElementById('s6269_drop');
+        if(btn) btn.onclick = () => {
+            const inp = document.createElement('input'); inp.type='file';
+            inp.onchange=(e)=>{
+                const f=e.target.files[0]; if(!f) return;
+                const r=new FileReader(); r.onload=(ev)=>{
+                    const wb=XLSX.read(ev.target.result,{type:'array'});
+                    window.dataStore['6269'] = parseData(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1}));
+                    run_6269();
+                }; r.readAsArrayBuffer(f);
+            }; inp.click();
+        };
+        window.run_6269 = () => {
+            const ds = window.dataStore['6269']; if(!ds) return;
+            const sh = parseInt(document.getElementById('s6269_sh').value)*1000;
+            // logic extraction here
+            let trd=[], hold=false, bp=0, tot=0, mCap=0, mPrf=0;
+            let bi=new Array(ds.length).fill(null), si=new Array(ds.length).fill(null);
+            for(let i=1; i<ds.length-1; i++){
+                let c=ds[i], n=ds[i+1], p=ds[i-1];
+                let tri=parseFloat(document.getElementById('s6269_tri').value)/100, lk=parseFloat(document.getElementById('s6269_lk').value)/100, st=parseFloat(document.getElementById('s6269_st').value)/100; if(!hold){ if(c.eom>c.eomSig && p.eom<=p.eomSig && c.close>c.ma60 && c.macd>0){ hold=true; bp=n.open; bi[i+1]=1; mPrf=0; mCap=Math.max(mCap,bp*sh); trd.push({type:'買入',date:n.date,price:bp,info:'V38進場'}); } } else { let curR=(c.close-bp)/bp; mPrf=Math.max(mPrf,curR); let nOpenR=(n.open-bp)/bp; let exit=false, rsn=''; if(mPrf>=tri && nOpenR<=lk){ exit=true; rsn='獲利鎖定'; } else if(c.eom<c.eomSig){ exit=true; rsn='動能轉弱'; } else if(nOpenR<-st){ exit=true; rsn='硬停損'; } if(exit){ hold=false; let tpP=bp*(1+lk); let ep=(rsn==='獲利鎖定' && tpP<=n.high && tpP>=n.low)?tpP:n.open; let d=(ep-bp)*sh; tot+=d; si[i+1]=1; trd.push({type:'賣出',date:n.date,price:ep,info:rsn,pnl:d,entP:bp}); } }
+            }
+            updateUI('6269', trd, tot, mCap, ds, bi, si);
+        };
+        document.querySelectorAll('#tab_6269 input, #tab_6269 select').forEach(el=>{ el.oninput=()=>window.run_6269(); });
+    } catch(e) { console.error(e); }
+    
+    try {
+        const btn = document.getElementById('s4746_drop');
+        if(btn) btn.onclick = () => {
+            const inp = document.createElement('input'); inp.type='file';
+            inp.onchange=(e)=>{
+                const f=e.target.files[0]; if(!f) return;
+                const r=new FileReader(); r.onload=(ev)=>{
+                    const wb=XLSX.read(ev.target.result,{type:'array'});
+                    window.dataStore['4746'] = parseData(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1}));
+                    run_4746();
+                }; r.readAsArrayBuffer(f);
+            }; inp.click();
+        };
+        window.run_4746 = () => {
+            const ds = window.dataStore['4746']; if(!ds) return;
+            const sh = parseInt(document.getElementById('s4746_sh').value)*1000;
+            // logic extraction here
+            let trd=[], hold=false, bp=0, tot=0, mCap=0, mPrf=0;
+            let bi=new Array(ds.length).fill(null), si=new Array(ds.length).fill(null);
+            for(let i=1; i<ds.length-1; i++){
+                let c=ds[i], n=ds[i+1], p=ds[i-1];
+                let tri=parseFloat(document.getElementById('s4746_tri').value)/100, lk=parseFloat(document.getElementById('s4746_lk').value)/100, st=parseFloat(document.getElementById('s4746_st').value)/100; if(!hold){ if(c.eom>c.eomSig && p.eom<=p.eomSig && c.close>c.ma60 && c.macd>0){ hold=true; bp=n.open; bi[i+1]=1; mPrf=0; mCap=Math.max(mCap,bp*sh); trd.push({type:'買入',date:n.date,price:bp,info:'V38進場'}); } } else { let curR=(c.close-bp)/bp; mPrf=Math.max(mPrf,curR); let nOpenR=(n.open-bp)/bp; let exit=false, rsn=''; if(mPrf>=tri && nOpenR<=lk){ exit=true; rsn='獲利鎖定'; } else if(c.eom<c.eomSig){ exit=true; rsn='動能轉弱'; } else if(nOpenR<-st){ exit=true; rsn='硬停損'; } if(exit){ hold=false; let tpP=bp*(1+lk); let ep=(rsn==='獲利鎖定' && tpP<=n.high && tpP>=n.low)?tpP:n.open; let d=(ep-bp)*sh; tot+=d; si[i+1]=1; trd.push({type:'賣出',date:n.date,price:ep,info:rsn,pnl:d,entP:bp}); } }
+            }
+            updateUI('4746', trd, tot, mCap, ds, bi, si);
+        };
+        document.querySelectorAll('#tab_4746 input, #tab_4746 select').forEach(el=>{ el.oninput=()=>window.run_4746(); });
+    } catch(e) { console.error(e); }
+    
+    try {
+        const btn = document.getElementById('s6261_drop');
+        if(btn) btn.onclick = () => {
+            const inp = document.createElement('input'); inp.type='file';
+            inp.onchange=(e)=>{
+                const f=e.target.files[0]; if(!f) return;
+                const r=new FileReader(); r.onload=(ev)=>{
+                    const wb=XLSX.read(ev.target.result,{type:'array'});
+                    window.dataStore['6261'] = parseData(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1}));
+                    run_6261();
+                }; r.readAsArrayBuffer(f);
+            }; inp.click();
+        };
+        window.run_6261 = () => {
+            const ds = window.dataStore['6261']; if(!ds) return;
+            const sh = parseInt(document.getElementById('s6261_sh').value)*1000;
+            // logic extraction here
+            let trd=[], hold=false, bp=0, tot=0, mCap=0, mPrf=0;
+            let bi=new Array(ds.length).fill(null), si=new Array(ds.length).fill(null);
+            for(let i=1; i<ds.length-1; i++){
+                let c=ds[i], n=ds[i+1], p=ds[i-1];
+                let tri=parseFloat(document.getElementById('s6261_tri').value)/100, lk=parseFloat(document.getElementById('s6261_lk').value)/100, st=parseFloat(document.getElementById('s6261_st').value)/100; if(!hold){ if(c.eom>c.eomSig && p.eom<=p.eomSig && c.close>c.ma60 && c.macd>0){ hold=true; bp=n.open; bi[i+1]=1; mPrf=0; mCap=Math.max(mCap,bp*sh); trd.push({type:'買入',date:n.date,price:bp,info:'V38進場'}); } } else { let curR=(c.close-bp)/bp; mPrf=Math.max(mPrf,curR); let nOpenR=(n.open-bp)/bp; let exit=false, rsn=''; if(mPrf>=tri && nOpenR<=lk){ exit=true; rsn='獲利鎖定'; } else if(c.eom<c.eomSig){ exit=true; rsn='動能轉弱'; } else if(nOpenR<-st){ exit=true; rsn='硬停損'; } if(exit){ hold=false; let tpP=bp*(1+lk); let ep=(rsn==='獲利鎖定' && tpP<=n.high && tpP>=n.low)?tpP:n.open; let d=(ep-bp)*sh; tot+=d; si[i+1]=1; trd.push({type:'賣出',date:n.date,price:ep,info:rsn,pnl:d,entP:bp}); } }
+            }
+            updateUI('6261', trd, tot, mCap, ds, bi, si);
+        };
+        document.querySelectorAll('#tab_6261 input, #tab_6261 select').forEach(el=>{ el.oninput=()=>window.run_6261(); });
+    } catch(e) { console.error(e); }
+    
+};
+</script></body></html>

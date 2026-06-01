@@ -1,0 +1,10 @@
+fastapi>=0.100.0
+uvicorn>=0.23.0
+python-multipart>=0.0.6
+opencv-python-headless>=4.8.0
+ezdxf>=1.1.0
+numpy>=1.24.0
+shapely>=2.0.1
+trimesh>=3.23.0
+mapbox-earcut>=1.0.0
+scipy>=1.10.0

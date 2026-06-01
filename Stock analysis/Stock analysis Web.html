@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1e40af">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <title>技術分析測試-量化策略實驗室 - 多分頁系統-穩定版</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --primary: #1e40af; --bg: #f1f5f9; --win: #dc2626; --loss: #16a34a; }
+        body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; background: var(--bg); margin: 0; padding: 0; color: #1e293b; }
+        
+        .nav-tabs { background: #0f172a; padding: 15px 0; display: flex; justify-content: center; gap: 12px; position: sticky; top: 0; z-index: 100; }
+        .tab-btn { padding: 10px 25px; border: none; background: #334155; color: white; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .tab-btn.active { background: #2563eb; box-shadow: 0 0 15px rgba(37, 99, 235, 0.4); }
+
+        .container { max-width: 1200px; margin: 20px auto; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        .page { display: none; }
+        .page.active { display: block; }
+
+        .control-panel { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; background: #f8fafc; padding: 20px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #e2e8f0; }
+        .param-group { display: flex; flex-direction: column; gap: 6px; }
+        .param-group label { font-size: 12px; font-weight: bold; color: #475569; }
+        .param-group input, .param-group select { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: white; }
+        .section-title { grid-column: 1 / -1; font-size: 14px; color: #1e40af; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; margin-top: 10px; font-weight: bold; }
+
+        .drop-zone { border: 3px dashed #2563eb; padding: 25px; text-align: center; border-radius: 10px; cursor: pointer; background: #eff6ff; margin-bottom: 20px; transition: 0.3s; }
+        .drop-zone:hover { background: #dbeaffe6; }
+        
+        .dashboard { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+        .stat-card { border: 1px solid #e2e8f0; padding: 12px; border-radius: 8px; text-align: center; background: #fff; }
+        .stat-card b { font-size: 11px; color: #64748b; display: block; margin-bottom: 4px; }
+        .stat-card span { font-size: 1.25em; font-weight: bold; }
+        
+        .win { color: var(--win); } .loss { color: var(--loss); } 
+        .chart-wrap { height: 450px; margin-bottom: 25px; border: 1px solid #e2e8f0; padding: 10px; border-radius: 10px; background: white; }
+        
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { padding: 10px; border-bottom: 1px solid #f1f5f9; text-align: center; }
+        th { background: #f8fafc; position: sticky; top: 0; }
+        .buy-row { background: #fff1f0; } .sell-row { background: #f0fdf4; }
+    </style>
+</head>
+<body>
+
+<nav class="nav-tabs">
+    <button class="tab-btn active" onclick="switchTab('tsmcPage')">2330_台積電 V4</button>
+    <button class="tab-btn" onclick="switchTab('gucPage')">3443_創意 V38</button>
+</nav>
+
+<div class="container">
+    <!-- TSMC 分頁 -->
+    <div id="tsmcPage" class="page active">
+        <h3 style="text-align:center; color:#1e40af;">台積電 (2330) V4 進場自定義系統 - 穩定版</h3>
+        <div class="control-panel">
+            <div class="section-title">資金與基礎出口</div>
+            <div class="param-group"><label>交易張數</label><input type="number" id="t_shares" value="1"></div>
+            <div class="param-group"><label>固定停利 (%)</label><input type="number" id="t_tp" value="9.0" step="0.1"></div>
+            <div class="param-group"><label>固定停損 (%)</label><input type="number" id="t_sl" value="4.6" step="0.1"></div>
+            
+            <div class="section-title">進場過濾參數</div>
+            <div class="param-group">
+                <label>均線趨勢確認</label>
+                <select id="t_ma_type">
+                    <option value="ma20" selected>MA 20 (月線)</option>
+                    <option value="ma60">MA 60 (季線)</option>
+                </select>
+            </div>
+            <div class="param-group"><label>MACD 需大於</label><input type="number" id="t_macd_entry" value="0" step="0.1"></div>
+            <div class="param-group"><label>EOM 金叉偏移</label><input type="number" id="t_eom_offset" value="0" step="0.01"></div>
+            <div class="param-group"><label>MFI 門檻</label><input type="number" id="t_mfi" value="40"></div>
+        </div>
+        <div class="drop-zone" id="t_drop"><strong>將 2330 檔案拖入此處</strong><br>策略：趨勢確認 V4 版<input type="file" id="t_file" hidden></div>
+        <div class="dashboard" id="t_dash"></div>
+        <div class="chart-wrap"><canvas id="t_chart"></canvas></div>
+        <table id="t_table"><thead><tr><th>類型</th><th>日期</th><th>價格</th><th>原因</th><th>損益(元)</th></tr></thead><tbody></tbody></table>
+    </div>
+
+    <!-- GUC 分頁 -->
+    <div id="gucPage" class="page">
+        <h3 style="text-align:center; color:#1e40af;">創意 (3443) V38 獲利鎖定系統 - 穩定版</h3>
+        <div class="control-panel">
+            <div class="section-title">資金與鎖利出口</div>
+            <div class="param-group"><label>交易張數</label><input type="number" id="g_shares" value="1"></div>
+            <div class="param-group"><label>觸發鎖利 (%)</label><input type="number" id="g_trigger" value="2.5" step="0.1"></div>
+            <div class="param-group"><label>保證獲利 (%)</label><input type="number" id="g_lock" value="3.5" step="0.1"></div>
+            <div class="param-group"><label>硬性停損 (%)</label><input type="number" id="g_stop" value="3.0" step="0.1"></div>
+            
+            <div class="section-title">進場過濾參數</div>
+            <div class="param-group">
+                <label>進場均線參考</label>
+                <select id="g_ma_type">
+                    <option value="ma20" selected>MA 20 (月線)</option>
+                    <option value="ma60">MA 60 (季線)</option>
+                </select>
+            </div>
+            <div class="param-group"><label>EOM 金叉靈敏度</label><input type="number" id="g_eom_sens" value="0" step="0.01"></div>
+            <div class="param-group">
+                <label>MACD 濾網</label>
+                <select id="g_macd_filter">
+                    <option value="grow" selected>MACD 需遞增</option>
+                    <option value="zero">MACD 需 > 0</option>
+                    <option value="none">不使用</option>
+                </select>
+            </div>
+            <div class="param-group"><label>必須突破前高</label>
+                <select id="g_break_filter">
+                    <option value="yes" selected>是</option>
+                    <option value="no">否</option>
+                </select>
+            </div>
+        </div>
+        <div class="drop-zone" id="g_drop"><strong>將 3443 檔案拖入此處</strong><br>策略：鎖利 V38 版<input type="file" id="g_file" hidden></div>
+        <div class="dashboard" id="g_dash"></div>
+        <div class="chart-wrap"><canvas id="g_chart"></canvas></div>
+        <table id="g_table"><thead><tr><th>類型</th><th>日期</th><th>價格</th><th>原因</th><th>損益(元)</th></tr></thead><tbody></tbody></table>
+    </div>
+</div>
+
+<script>
+let charts = { t: null, g: null };
+let dataStore = { t: null, g: null };
+
+const verticalLinePlugin = {
+    id: 'verticalLinePlugin',
+    beforeDraw(chart) {
+        const { ctx, chartArea: { top, bottom }, scales: { x } } = chart;
+        chart.data.datasets.forEach(dataset => {
+            if (dataset.lineType) {
+                ctx.save(); ctx.lineWidth = 2;
+                ctx.strokeStyle = dataset.lineType === 'buy' ? 'rgba(220, 38, 38, 0.6)' : 'rgba(22, 163, 74, 0.6)';
+                dataset.data.forEach((val, idx) => {
+                    if (val !== null) {
+                        const xPos = x.getPixelForValue(chart.data.labels[idx]);
+                        ctx.beginPath(); ctx.moveTo(xPos, top); ctx.lineTo(xPos, bottom); ctx.stroke();
+                    }
+                });
+                ctx.restore();
+            }
+        });
+    }
+};
+Chart.register(verticalLinePlugin);
+
+function switchTab(target) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(target).classList.add('active');
+    event.currentTarget.classList.add('active');
+}
+
+const parseData = (rows) => {
+    const p = (v) => v ? parseFloat(String(v).replace(/[↑↓,%\s]/g, '')) || 0 : 0;
+    return rows.filter(r => r[0] && (String(r[0]).includes('/') || /^\d{8}$/.test(r[0]))).map(r => ({
+        date: String(r[0]).trim(), open: p(r[1]), high: p(r[2]), low: p(r[3]), close: p(r[4]),
+        ma20: p(r[8]), ma60: p(r[9]), eom: p(r[10]), eomSig: p(r[11]), mfi: p(r[12]), macd: p(r[14])
+    }));
+};
+
+// --- TSMC 邏輯 ---
+document.getElementById('t_drop').onclick = () => document.getElementById('t_file').click();
+document.getElementById('t_file').onchange = (e) => {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        const wb = XLSX.read(ev.target.result, {type: 'array'});
+        dataStore.t = parseData(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header: 1}));
+        runTsmc();
+    };
+    reader.readAsArrayBuffer(e.target.files[0]);
+};
+document.querySelectorAll('#tsmcPage input, #tsmcPage select').forEach(i => i.oninput = () => dataStore.t && runTsmc());
+
+function runTsmc() {
+    const ds = dataStore.t;
+    const sh = parseInt(document.getElementById('t_shares').value) * 1000;
+    const tp = parseFloat(document.getElementById('t_tp').value)/100;
+    const sl = parseFloat(document.getElementById('t_sl').value)/100;
+    const maType = document.getElementById('t_ma_type').value;
+    const macdLimit = parseFloat(document.getElementById('t_macd_entry').value);
+    const eomOffset = parseFloat(document.getElementById('t_eom_offset').value);
+    const mfThreshold = parseFloat(document.getElementById('t_mfi').value);
+
+    let trd = [], hold = false, bp = 0, tot = 0, mCap = 0;
+    let bi = new Array(ds.length).fill(null), si = new Array(ds.length).fill(null);
+
+    for(let i=1; i<ds.length-1; i++){
+        let c = ds[i], n = ds[i+1];
+        let maVal = (maType === 'ma60') ? c.ma60 : c.ma20;
+
+        if(!hold){
+            if(c.close > maVal && c.eom > (c.eomSig + eomOffset) && c.macd > macdLimit && c.mfi > mfThreshold){
+                hold = true; bp = n.open; bi[i+1] = 1; mCap = Math.max(mCap, bp * sh);
+                trd.push({ type:'買入', date:n.date, price:bp, info: `V4 穩定版進場` });
+            }
+        } else {
+            let pnlR = (n.open - bp)/bp;
+            if(pnlR >= tp || pnlR <= -sl){
+                hold = false; let ep = n.open; let p = (ep - bp) * sh; tot += p; si[i+1] = 1;
+                trd.push({ type:'賣出', date:n.date, price:ep, info: pnlR>0?'停利':'停損', pnl:p, entP: bp });
+            }
+        }
+    }
+    updateUI('t', trd, tot, mCap, ds, bi, si);
+}
+
+// --- GUC 邏輯 ---
+document.getElementById('g_drop').onclick = () => document.getElementById('g_file').click();
+document.getElementById('g_file').onchange = (e) => {
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+        const wb = XLSX.read(ev.target.result, {type: 'array'});
+        dataStore.g = parseData(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header: 1}));
+        runGuc();
+    };
+    reader.readAsArrayBuffer(e.target.files[0]);
+};
+document.querySelectorAll('#gucPage input, #gucPage select').forEach(i => i.oninput = () => dataStore.g && runGuc());
+
+function runGuc() {
+    const ds = dataStore.g;
+    const sh = parseInt(document.getElementById('g_shares').value) * 1000;
+    const tri = parseFloat(document.getElementById('g_trigger').value)/100;
+    const lk = parseFloat(document.getElementById('g_lock').value)/100;
+    const st = parseFloat(document.getElementById('g_stop').value)/100;
+    const maType = document.getElementById('g_ma_type').value;
+    const eomSens = parseFloat(document.getElementById('g_eom_sens').value);
+    const macdMode = document.getElementById('g_macd_filter').value;
+    const breakMode = document.getElementById('g_break_filter').value;
+
+    let trd = [], hold = false, bp = 0, tot = 0, mPrf = 0, mCap = 0;
+    let bi = new Array(ds.length).fill(null), si = new Array(ds.length).fill(null);
+
+    for (let i = 20; i < ds.length - 1; i++) {
+        let c = ds[i], p = ds[i-1], n = ds[i+1];
+        let maVal = (maType === 'ma60') ? c.ma60 : c.ma20;
+
+        if (!hold) {
+            let eomCond = (c.eom > (c.eomSig + eomSens) && p.eom <= (p.eomSig + eomSens));
+            let maCond = (c.close > maVal);
+            let breakCond = (breakMode === 'yes') ? (c.close > p.high) : true;
+            let macdCond = true;
+            if (macdMode === 'grow') macdCond = (c.macd > p.macd);
+            else if (macdMode === 'zero') macdCond = (c.macd > 0);
+
+            if (eomCond && maCond && breakCond && macdCond) {
+                hold = true; bp = n.open; bi[i+1] = 1; mPrf = 0; mCap = Math.max(mCap, bp * sh);
+                trd.push({ type:'買入', date:n.date, price:bp, info: `V38 穩定版進場` });
+            }
+        } else {
+            let curR = (c.close - bp)/bp; 
+            mPrf = Math.max(mPrf, curR);
+            let nOpenR = (n.open - bp)/bp;
+            let exit = false, rsn = "";
+            let targetPrice = bp * (1 + lk); 
+
+            if (mPrf >= tri && nOpenR <= lk) { exit = true; rsn = "獲利鎖定"; }
+            else if (c.eom < c.eomSig) { exit = true; rsn = "動能轉弱"; }
+            else if (nOpenR < -st) { exit = true; rsn = "硬停損"; }
+
+            if (exit) {
+                hold = false; 
+                let ep = (rsn === "獲利鎖定" && targetPrice <= n.high && targetPrice >= n.low) ? targetPrice : n.open;
+                let diff = (ep - bp) * sh; tot += diff; si[i+1] = 1;
+                trd.push({ type: '賣出', date: n.date, price: ep, info: rsn, pnl: diff, entP: bp });
+            }
+        }
+    }
+    updateUI('g', trd, tot, mCap, ds, bi, si);
+}
+
+function updateUI(pre, trd, tot, mCap, ds, bi, si) {
+    const sls = trd.filter(t => t.type === '賣出');
+    const pnls = sls.map(t => t.pnl);
+    const cnt = sls.length, win = pnls.filter(v => v > 0).length;
+    const mxP = cnt > 0 ? Math.max(...pnls) : 0, mxL = cnt > 0 ? Math.min(...pnls) : 0;
+    const avg = cnt > 0 ? tot / cnt : 0;
+    const avgEnt = cnt > 0 ? (sls.reduce((sum, t) => sum + t.entP, 0) / cnt) * (parseInt(document.getElementById(pre+'_shares').value)*1000) : 1;
+    const expR = (avg / avgEnt) * 100;
+
+    document.getElementById(pre + '_dash').innerHTML = `
+        <div class="stat-card"><b>累積淨損益總額</b><span class="${tot>=0?'win':'loss'}">$${Math.round(tot).toLocaleString()}</span></div>
+        <div class="stat-card"><b>最大所需本金</b><span>$${Math.round(mCap).toLocaleString()}</span></div>
+        <div class="stat-card"><b>真實投報率 (ROI)</b><span class="${tot>=0?'win':'loss'}">${mCap>0?(tot/mCap*100).toFixed(2):0}%</span></div>
+        <div class="stat-card"><b>交易次數 / 勝率</b><span>${cnt}次 / ${cnt>0?(win/cnt*100).toFixed(1):0}%</span></div>
+        <div class="stat-card"><b>單筆最大獲利</b><span class="win">$${Math.round(mxP).toLocaleString()}</span></div>
+        <div class="stat-card"><b>單筆最大虧損</b><span class="loss">$${Math.round(mxL).toLocaleString()}</span></div>
+        <div class="stat-card"><b>平均每筆損益</b><span class="${avg>=0?'win':'loss'}">$${Math.round(avg).toLocaleString()}</span></div>
+        <div class="stat-card"><b>期望報酬率 (每筆)</b><span class="${expR>=0?'win':'loss'}">${expR.toFixed(2)}%</span></div>
+    `;
+
+    const tbody = document.querySelector(`#${pre}_table tbody`);
+    tbody.innerHTML = trd.map(t => `
+        <tr class="${t.type==='買入'?'buy-row':'sell-row'}">
+            <td><b>${t.type}</b></td><td>${t.date}</td><td>${t.price.toFixed(1)}</td><td>${t.info}</td>
+            <td class="${t.pnl>0?'win':(t.pnl<0?'loss':'')}">${t.pnl?Math.round(t.pnl).toLocaleString():'-'}</td>
+        </tr>
+    `).reverse().join('');
+
+    const ctx = document.getElementById(pre + '_chart');
+    if (charts[pre]) charts[pre].destroy();
+    charts[pre] = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: ds.map(d => d.date),
+            datasets: [
+                { label: '收盤價', data: ds.map(d => d.close), borderColor: '#475569', borderWidth: 1, pointRadius: 0, yAxisID: 'y' },
+                { data: bi, lineType: 'buy', pointRadius: 0, yAxisID: 'y_sub' },
+                { data: si, lineType: 'sell', pointRadius: 0, yAxisID: 'y_sub' }
+            ]
+        },
+        options: {
+            maintainAspectRatio: false,
+            scales: { y: { type: 'linear', position: 'left' }, y_sub: { display: false, min: 0, max: 1 } },
+            plugins: { legend: { display: false } }
+        }
+    });
+}
+</script>
+
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js').then(registration => {
+      console.log('ServiceWorker registration successful with scope: ', registration.scope);
+    }, err => {
+      console.log('ServiceWorker registration failed: ', err);
+    });
+  });
+}
+</script>
+</body>
+</html>

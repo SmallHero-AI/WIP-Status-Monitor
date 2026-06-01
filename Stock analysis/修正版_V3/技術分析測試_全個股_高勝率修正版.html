@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>技術分析測試-全個股高勝率修正版</title>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --primary: #1e40af; --bg: #f1f5f9; --win: #dc2626; --loss: #16a34a; }
+        body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; background: var(--bg); margin: 0; padding: 0; color: #1e293b; }
+        .nav-tabs { background: #0f172a; padding: 15px 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; position: sticky; top: 0; z-index: 100; }
+        .tab-btn { padding: 10px 25px; border: none; background: #334155; color: white; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .tab-btn.active { background: #2563eb; box-shadow: 0 0 15px rgba(37, 99, 235, 0.4); }
+        .container { max-width: 1200px; margin: 20px auto; background: white; padding: 25px; border-radius: 15px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); }
+        .page { display: none; }
+        .page.active { display: block; }
+        .control-panel { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; background: #f8fafc; padding: 20px; border-radius: 10px; margin-bottom: 20px; border: 1px solid #e2e8f0; }
+        .param-group { display: flex; flex-direction: column; gap: 6px; }
+        .param-group label { font-size: 12px; font-weight: bold; color: #475569; }
+        .param-group input, .param-group select { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 13px; background: white; }
+        .section-title { grid-column: 1 / -1; font-size: 14px; color: #1e40af; border-bottom: 1px solid #e2e8f0; padding-bottom: 5px; margin-top: 10px; font-weight: bold; }
+        
+        .info-panel { background: #fdfae8; border: 1px solid #fde047; padding: 15px; border-radius: 10px; margin-bottom: 20px; font-size: 13px; }
+        .info-panel h4 { margin: 0 0 10px 0; color: #b45309; }
+        .info-table { width: 100%; border-collapse: collapse; background: white; }
+        .info-table th, .info-table td { padding: 8px; border: 1px solid #fef08a; text-align: center; }
+        .info-table th { background: #fef9c3; color: #854d0e; }
+        
+        .drop-zone { border: 3px dashed #2563eb; padding: 25px; text-align: center; border-radius: 10px; cursor: pointer; background: #eff6ff; margin-bottom: 5px; transition: 0.3s; }
+        .drop-zone:hover { background: #dbeaffe6; }
+        .file-info { text-align: center; font-size: 13px; color: #1e40af; margin-bottom: 15px; font-weight: bold; }
+        .dashboard { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+        .stat-card { border: 1px solid #e2e8f0; padding: 12px; border-radius: 8px; text-align: center; background: #fff; }
+        .stat-card b { font-size: 11px; color: #64748b; display: block; margin-bottom: 4px; }
+        .stat-card span { font-size: 1.25em; font-weight: bold; }
+        .win { color: var(--win); } .loss { color: var(--loss); } 
+        .chart-wrap { height: 450px; margin-bottom: 25px; border: 1px solid #e2e8f0; padding: 10px; border-radius: 10px; background: white; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { padding: 10px; border-bottom: 1px solid #f1f5f9; text-align: center; }
+        th { background: #f8fafc; position: sticky; top: 0; }
+        .buy-row { background: #fff1f0; } .sell-row { background: #f0fdf4; }
+    </style>
+</head>
+<body>
+<nav class="nav-tabs">
+<button class="tab-btn active" onclick="switchTab('tab_2330')">2330_台積電</button>
+<button class="tab-btn" onclick="switchTab('tab_2360')">2360_致茂</button>
+<button class="tab-btn" onclick="switchTab('tab_6205')">6205_詮欣</button>
+<button class="tab-btn" onclick="switchTab('tab_6669')">6669_緯穎</button>
+<button class="tab-btn" onclick="switchTab('tab_3443')">3443_創意</button>
+<button class="tab-btn" onclick="switchTab('tab_3189')">3189_景碩</button>
+<button class="tab-btn" onclick="switchTab('tab_3455')">3455_由田</button>
+<button class="tab-btn" onclick="switchTab('tab_3535')">3535_晶彩科</button>
+<button class="tab-btn" onclick="switchTab('tab_4908')">4908_前鼎</button>
+<button class="tab-btn" onclick="switchTab('tab_6269')">6269_台郡</button>
+<button class="tab-btn" onclick="switchTab('tab_4746')">4746_台耀</button>
+<button class="tab-btn" onclick="switchTab('tab_6261')">6261_久元</button>
+</nav>
+<div class="container">
+
+    <div id="tab_2330" class="page active">
+        <h3 style="text-align:center; color:#1e40af;">台積電 (2330) 高勝率修正策略 - V4</h3>
+        <div class="control-panel">
+            <div class="section-title">資金與基礎出口</div>
+            <div class="param-group"><label>交易張數</label><input type="number" id="s2330_sh" value="1"></div>
+            <div class="param-group"><label>固定停利 (%)</label><input type="number" id="s2330_tp" value="11.0" step="0.1"></div>
+            <div class="param-group"><label>固定停損 (%)</label><input type="number" id="s2330_sl" value="9.0" step="0.1"></div>
+            <div class="section-title">進場過濾參數</div>
+            <div class="param-group"><label>進場均線參考</label><select id="s2330_ma"><option value="none">不參考</option><option value="ma5">MA 5</option><option value="ma20" selected>MA 20</option><option value="ma60">MA 60</option><option value="ma120">MA 120</option></select></div>
+            <div class="param-group"><label>MACD 需大於</label><input type="number" id="s2330_macd" value="2.1" step="0.1"></div>
+            <div class="param-group"><label>EOM 金叉偏移</label><input type="number" id="s2330_eom" value="0.0" step="0.1"></div>
+            <div class="param-group"><label>MFI 門檻</label><input type="number" id="s2330_mfi" value="30.0" step="1"></div>
+        </div>
+        
+        <div class="info-panel">
+            <h4>💡 重新設計高勝率 Top 3 最佳化組合</h4>
+            <table class="info-table">
+                <tr><th>名次</th><th>參數組合</th><th>累積損益</th><th>勝率</th><th>AI 策略註解</th></tr><tr><td>Top 1</td><td>tp:11.0%, sl:9.0%, macd:2.1, mfi:30.0, eom_off:0.0</td><td>$1,708,500</td><td>88.2%</td><td>🏆 最高報酬：完美捕捉大趨勢波段。</td></tr><tr><td>Top 2</td><td>tp:11.0%, sl:9.0%, macd:2.1, mfi:40.0, eom_off:0.0</td><td>$1,708,500</td><td>88.2%</td><td>⭐ 極高勝率：穩定度極佳，幾乎不虧損。</td></tr><tr><td>Top 3</td><td>tp:8.0%, sl:9.0%, macd:2.1, mfi:30.0, eom_off:0.0</td><td>$1,789,000</td><td>87.5%</td><td>⭐ 極高勝率：穩定度極佳，幾乎不虧損。</td></tr></table></div>
+        <div class="drop-zone" id="s2330_drop"><strong>將 2330 檔案拖入此處</strong><br>策略：V4<input type="file" id="s2330_file" hidden></div>
+        <div id="s2330_filename" class="file-info">未載入檔案</div>
+        <div class="dashboard" id="s2330_dash"></div>
+        <div class="chart-wrap"><canvas id="s2330_chart"></canvas></div>
+        <table id="s2330_table"><thead><tr><th>類型</th><th>日期</th><th>價格</th><th>原因</th><th>損益(元)</th></tr></thead><tbody></tbody></table>
+    </div>
+    
+    <div id="tab_2360" class="page">
+        <h3 style="text-align:center; color:#1e40af;">致茂 (2360) 高勝率修正策略 - V4</h3>
+        <div class="control-panel">
+            <div class="section-title">資金與基礎出口</div>
+            <div class="param-group"><label>交易張數</label><input type="number" id="s2360_sh" value="1"></div>
+            <div class="param-group"><label>固定停利 (%)</label><input type="number" id="s2360_tp" value="18.9" step="0.1"></div>
+            <div class="param-group"><label>固定停損 (%)</label><input type="number" id="s2360_sl" value="8.0" step="0.1"></div>
+            <div class="section-title">進場過濾參數</div>
+            <div class="param-group"><label>進場均線參考</label><select id="s2360_ma"><option value="none">不參考</option><option value="ma5">MA 5</option><option value="ma20" selected>MA 20</option><option value="ma60">MA 60</option><option value="ma120">MA 120</option></select></div>
+            <div class="param-group"><label>MACD 需大於</label><input type="number" id="s2360_macd" value="2.1" step="0.1"></div>
+            <div class="param-group"><label>EOM 金叉偏移</label><input type="number" id="s2360_eom" value="0.0" step="0.1"></div>
+            <div class="param-group"><label>MFI 門檻</label><input type="number" id="s2360_mfi" value="30.0" step="1"></div>
+        </div>
+        
+        <div class="info-panel">
+            <h4>💡 重新設計高勝率 Top 3 最佳化組合</h4>
+            <table class="info-table">
+                <tr><th>名次</th><th>參數組合</th><th>累積損益</th><th>勝率</th><th>AI 策略註解</th></tr><tr><td>Top 1</td><td>tp:18.9%, sl:8.0%, macd:2.1, mfi:30.0, eom_off:0.0</td><td>$2,509,500</td><td>88.9%</td><td>🏆 最高報酬：完美捕捉大趨勢波段。</td></tr><tr><td>Top 2</td><td>tp:18.9%, sl:8.0%, macd:2.2, mfi:30.0, eom_off:0.0</td><td>$2,509,500</td><td>88.9%</td><td>⭐ 極高勝率：穩定度極佳，幾乎不虧損。</td></tr><tr><td>Top 3</td><td>tp:18.9%, sl:9.0%, macd:2.1, mfi:30.0, eom_off:0.0</td><td>$2,509,500</td><td>88.9%</td><td>⭐ 極高勝率：穩定度極佳，幾乎不虧損。</td></tr></table></div>
+        <div class="drop-zone" id="s2360_drop"><strong>將 2360 檔案拖入此處</strong><br>策略：V4<input type="file" id="s2360_file" hidden></div>
+        <div id="s2360_filename" class="file-info">未載入檔案</div>
+        <div class="dashboard" id="s2360_dash"></div>
+        <div class="chart-wrap"><canvas id="s2360_chart"></canvas></div>
+        <table id="s2360_table"><thead><tr><th>類型</th><th>日期</th><th>價格</th><th>原因</th><th>損益(元)</th></tr></thead><tbody></tbody></table>
+    </div>
+    
+    <div id="tab_6205" class="page">
+        <h3 style="text-align:center; color:#1e40af;">詮欣 (6205) 高勝率修正策略 - V4</h3>
+        <div class="control-panel">
+            <div class="section-title">資金與基礎出口</div>
+            <div class="param-group"><label>交易張數</label><input type="number" id="s6205_sh" value="1"></div>
+            <div class="param-group"><label>固定停利 (%)</label><input type="number" id="s6205_tp" value="8.0" step="0.1"></div>
+            <div class="param-group"><label>固定停損 (%)</label><input type="number" id="s6205_sl" value="5.0" step="0.1"></div>
+            <div class="section-title">進場過濾參數</div>
+            <div class="param-group"><label>進場均線參考</label><select id="s6205_ma"><option value="none">不參考</option><option value="ma5">MA 5</option><option value="ma20" selected>MA 20</option><option value="ma60">MA 60</option><option value="ma120">MA 120</option></select></div>
+            <div class="param-group"><label>MACD 需大於</label><input type="number" id="s6205_macd" value="2.1" step="0.1"></div>
+            <div class="param-group"><label>EOM 金叉偏移</label><input type="number" id="s6205_eom" value="0.0" step="0.1"></div>
+            <div class="param-group"><label>MFI 門檻</label><input type="number" id="s6205_mfi" value="30.0" step="1"></div>
+        </div>
+        
+        <div class="info-panel">
+            <h4>💡 重新設計高勝率 Top 3 最佳化組合</h4>
+            <table class="info-table">
+                <tr><th>名次</th><th>參數組合</th><th>累積損益</th><th>勝率</th><th>AI 策略註解</th></tr><tr><td>Top 1</td><td>tp:8.0%, sl:5.0%, macd:2.1, mfi:30.0, eom_off:0.0</td><td>$25,500</td><td>80.0%</td><td>🏆 最高報酬：完美捕捉大趨勢波段。</td></tr><tr><td>Top 2</td><td>tp:8.0%, sl:5.0%, macd:2.1, mfi:40.0, eom_off:0.0</td><td>$25,500</td><td>80.0%</td><td>⭐ 極高勝率：穩定度極佳，幾乎不虧損。</td></tr><tr><td>Top 3</td><td>tp:8.0%, sl:6.0%, macd:2.1, mfi:30.0, eom_off:0.0</td><td>$25,500</td><td>80.0%</td><td>⭐ 極高勝率：穩定度極佳，幾乎不虧損。</td></tr></table></div>
+        <div class="drop-zone" id="s6205_drop"><strong>將 6205 檔案拖入此處</strong><br>策略：V4<input type="file" id="s6205_file" hidden></div>
+        <div id="s6205_filename" class="file-info">未載入檔案</div>
+        <div class="dashboard" id="s6205_dash"></div>
+        <div class="chart-wrap"><canvas id="s6205_chart"></canvas></div>
+        <table id="s6205_table"><thead><tr><th>類型</th><th>日期</th><th>價格</th><th>原因</th><th>損益(元)</th></tr></thead><tbody></tbody></table>
+    </div>
+    
+    <div id="tab_6669" class="page">
+        <h3 style="text-align:center; color:#1e40af;">緯穎 (6669) 高勝率修正策略 - V_Rebound</h3>
+        <div class="control-panel">
+            <div class="section-title">資金與反轉出口</div>
+            <div class="param-group"><label>交易張數</label><input type="number" id="s6669_sh" value="1"></div>
+            <div class="param-group"><label>固定停利 (%)</label><input type="number" id="s6669_tp" value="19.0" step="0.1"></div>
+            <div class="param-group"><label>固定停損 (%)</label><input type="number" id="s6669_sl" value="5.0" step="0.1"></div>
+            <div class="section-title">進場過濾參數</div>
+            <div class="param-group"><label>進場均線參考</label><select id="s6669_ma"><option value="none">不參考</option><option value="ma5">MA 5</option><option value="ma20" selected>MA 20</option><option value="ma60">MA 60</option><option value="ma120">MA 120</option></select></div>
+            <div class="param-group"><label>超賣區 (MFI <)</label><input type="number" id="s6669_mfi_s" value="25.0" step="1"></div>
+            <div class="param-group"><label>超買區 (MFI >)</label><input type="number" id="s6669_mfi_b" value="75.0" step="1"></div>
+        </div>
+        
+        <div class="info-panel">
+            <h4>💡 重新設計高勝率 Top 3 最佳化組合</h4>
+            <table class="info-table">
+                <tr><th>名次</th><th>參數組合</th><th>累積損益</th><th>勝率</th><th>AI 策略註解</th></tr><tr><td>Top 1</td><td>tp:19.0%, sl:5.0%, mfi_s:25.0, mfi_b:75.0</td><td>$1,484,000</td><td>83.3%</td><td>🏆 最高報酬：完美捕捉大趨勢波段。</td></tr><tr><td>Top 2</td><td>tp:19.0%, sl:6.0%, mfi_s:25.0, mfi_b:75.0</td><td>$1,484,000</td><td>83.3%</td><td>⭐ 極高勝率：穩定度極佳，幾乎不虧損。</td></tr><tr><td>Top 3</td><td>tp:19.0%, sl:7.0%, mfi_s:25.0, mfi_b:75.0</td><td>$1,484,000</td><td>83.3%</td><td>⭐ 極高勝率：穩定度極佳，幾乎不虧損。</td></tr></table></div>
+        <div class="drop-zone" id="s6669_drop"><strong>將 6669 檔案拖入此處</strong><br>策略：V_Rebound<input type="file" id="s6669_file" hidden></div>
+        <div id="s6669_filename" class="file-info">未載入檔案</div>
+        <div class="dashboard" id="s6669_dash"></div>
+        <div class="chart-wrap"><canvas id="s6669_chart"></canvas></div>
+        <table id="s6669_table"><thead><tr><th>類型</th><th>日期</th><th>價格</th><th>原因</th><th>損益(元)</th></tr></thead><tbody></tbody></table>
+    </div>
+    
+    <div id="tab_3443" class="page">
+        <h3 style="text-align:center; color:#1e40af;">創意 (3443) 高勝率修正策略 - V_Rebound</h3>
+        <div class="control-panel">
+            <div class="section-title">資金與反轉出口</div>
+            <div class="param-group"><label>交易張數</label><input type="number" id="s3443_sh" value="1"></div>
+            <div class="param-group"><label>固定停利 (%)</label><input type="number" id="s3443_tp" value="17.0" step="0.1"></div>
+            <div class="param-group"><label>固定停損 (%)</label><input type="number" id="s3443_sl" value="7.0" step="0.1"></div>
+            <div class="section-title">進場過濾參數</div>
+            <div class="param-group"><label>進場均線參考</label><select id="s3443_ma"><option value="none">不參考</option><option value="ma5">MA 5</option><option value="ma20" selected>MA 20</option><option value="ma60">MA 60</option><option value="ma120">MA 120</option></select></div>
+            <div class="param-group"><label>超賣區 (MFI <)</label><input type="number" id="s3443_mfi_s" value="35.0" step="1"></div>
+            <div class="param-group"><label>超買區 (MFI >)</label><input type="number" id="s3443_mfi_b" value="75.0" step="1"></div>
+        </div>
+        
+        <div class="info-panel">
+            <h4>💡 重新設計高勝率 Top 3 最佳化組合</h4>
+            <table class="info-table">
+                <tr><th>名次</th><th>參數組合</th><th>累積損益</th><th>勝率</th><th>AI 策略註解</th></tr><tr><td>Top 1</td><td>tp:17.0%, sl:7.0%, mfi_s:35.0, mfi_b:75.0</td><td>$832,000</td><td>66.7%</td><td>🏆 最高報酬：完美捕捉大趨勢波段。</td></tr><tr><td>Top 2</td><td>tp:17.0%, sl:8.0%, mfi_s:35.0, mfi_b:75.0</td><td>$832,000</td><td>66.7%</td><td>🛡️ 高勝率優選：突破 65% 勝率防線。</td></tr><tr><td>Top 3</td><td>tp:17.0%, sl:9.0%, mfi_s:35.0, mfi_b:75.0</td><td>$832,000</td><td>66.7%</td><td>🛡️ 高勝率優選：突破 65% 勝率防線。</td></tr></table></div>
+        <div class="drop-zone" id="s3443_drop"><strong>將 3443 檔案拖入此處</strong><br>策略：V_Rebound<input type="file" id="s3443_file" hidden></div>
+        <div id="s3443_filename" class="file-info">未載入檔案</div>
+        <div class="dashboard" id="s3443_dash"></div>
+        <div class="chart-wrap"><canvas id="s3443_chart"></canvas></div>
+        <table id="s3443_table"><thead><tr><th>類型</th><th>日期</th><th>價格</th><th>原因</th><th>損益(元)</th></tr></thead><tbody></tbody></table>
+    </div>
+    
+    <div id="tab_3189" class="page">
+        <h3 style="text-align:center; color:#1e40af;">景碩 (3189) 高勝率修正策略 - V_Rebound</h3>
+        <div class="control-panel">
+            <div class="section-title">資金與反轉出口</div>
+            <div class="param-group"><label>交易張數</label><input type="number" id="s3189_sh" value="1"></div>
+            <div class="param-group"><label>固定停利 (%)</label><input type="number" id="s3189_tp" value="19.0" step="0.1"></div>
+            <div class="param-group"><label>固定停損 (%)</label><input type="number" id="s3189_sl" value="9.0" step="0.1"></div>
+            <div class="section-title">進場過濾參數</div>
+            <div class="param-group"><label>進場均線參考</label><select id="s3189_ma"><option value="none">不參考</option><option value="ma5">MA 5</option><option value="ma20" selected>MA 20</option><option value="ma60">MA 60</option><option value="ma120">MA 120</option></select></div>
+            <div class="param-group"><label>超賣區 (MFI <)</label><input type="number" id="s3189_mfi_s" value="25.0" step="1"></div>
+            <div class="param-group"><label>超買區 (MFI >)</label><input type="number" id="s3189_mfi_b" value="80.0" step="1"></div>
+        </div>
+        
+        <div class="info-panel">
+            <h4>💡 重新設計高勝率 Top 3 最佳化組合</h4>
+            <table class="info-table">
+                <tr><th>名次</th><th>參數組合</th><th>累積損益</th><th>勝率</th><th>AI 策略註解</th></tr><tr><td>Top 1</td><td>tp:19.0%, sl:9.0%, mfi_s:25.0, mfi_b:80.0</td><td>$76,900</td><td>87.5%</td><td>🏆 最高報酬：完美捕捉大趨勢波段。</td></tr><tr><td>Top 2</td><td>tp:18.0%, sl:9.0%, mfi_s:25.0, mfi_b:80.0</td><td>$75,100</td><td>87.5%</td><td>⭐ 極高勝率：穩定度極佳，幾乎不虧損。</td></tr><tr><td>Top 3</td><td>tp:16.0%, sl:9.0%, mfi_s:25.0, mfi_b:80.0</td><td>$72,100</td><td>87.5%</td><td>⭐ 極高勝率：穩定度極佳，幾乎不虧損。</td></tr></table></div>
+        <div class="drop-zone" id="s3189_drop"><strong>將 3189 檔案拖入此處</strong><br>策略：V_Rebound<input type="file" id="s3189_file" hidden></div>
+        <div id="s3189_filename" class="file-info">未載入檔案</div>
+        <div class="dashboard" id="s3189_dash"></div>
+        <div class="chart-wrap"><canvas id="s3189_chart"></canvas></div>
+        <table id="s3189_table"><thead><tr><th>類型</th><th>日期</th><th>價格</th><th>原因</th><th>損益(元)</th></tr></thead><tbody></tbody></table>
+    </div>
+    
+    <div id="tab_3455" class="page">
+        <h3 style="text-align:center; color:#1e40af;">由田 (3455) 高勝率修正策略 - V_Rebound</h3>
+        <div class="control-panel">
+            <div class="section-title">資金與反轉出口</div>
+            <div class="param-group"><label>交易張數</label><input type="number" id="s3455_sh" value="1"></div>
+            <div class="param-group"><label>固定停利 (%)</label><input type="number" id="s3455_tp" value="18.0" step="0.1"></div>
+            <div class="param-group"><label>固定停損 (%)</label><input type="number" id="s3455_sl" value="4.0" step="0.1"></div>
+            <div class="section-title">進場過濾參數</div>
+            <div class="param-group"><label>進場均線參考</label><select id="s3455_ma"><option value="none">不參考</option><option value="ma5">MA 5</option><option value="ma20" selected>MA 20</option><option value="ma60">MA 60</option><option value="ma120">MA 120</option></select></div>
+            <div class="param-group"><label>超賣區 (MFI <)</label><input type="number" id="s3455_mfi_s" value="25.0" step="1"></div>
+            <div class="param-group"><label>超買區 (MFI >)</label><input type="number" id="s3455_mfi_b" value="80.0" step="1"></div>
+        </div>
+        
+        <div class="info-panel">
+            <h4>💡 重新設計高勝率 Top 3 最佳化組合</h4>
+            <table class="info-table">
+                <tr><th>名次</th><th>參數組合</th><th>累積損益</th><th>勝率</th><th>AI 策略註解</th></tr><tr><td>Top 1</td><td>tp:18.0%, sl:4.0%, mfi_s:25.0, mfi_b:80.0</td><td>$43,500</td><td>80.0%</td><td>🏆 最高報酬：完美捕捉大趨勢波段。</td></tr><tr><td>Top 2</td><td>tp:18.0%, sl:5.0%, mfi_s:25.0, mfi_b:80.0</td><td>$43,500</td><td>80.0%</td><td>⭐ 極高勝率：穩定度極佳，幾乎不虧損。</td></tr><tr><td>Top 3</td><td>tp:18.0%, sl:6.0%, mfi_s:25.0, mfi_b:80.0</td><td>$43,500</td><td>80.0%</td><td>⭐ 極高勝率：穩定度極佳，幾乎不虧損。</td></tr></table></div>
+        <div class="drop-zone" id="s3455_drop"><strong>將 3455 檔案拖入此處</strong><br>策略：V_Rebound<input type="file" id="s3455_file" hidden></div>
+        <div id="s3455_filename" class="file-info">未載入檔案</div>
+        <div class="dashboard" id="s3455_dash"></div>
+        <div class="chart-wrap"><canvas id="s3455_chart"></canvas></div>
+        <table id="s3455_table"><thead><tr><th>類型</th><th>日期</th><th>價格</th><th>原因</th><th>損益(元)</th></tr></thead><tbody></tbody></table>
+    </div>
+    
+    <div id="tab_3535" class="page">
+        <h3 style="text-align:center; color:#1e40af;">晶彩科 (3535) 高勝率修正策略 - V_Rebound</h3>
+        <div class="control-panel">
+            <div class="section-title">資金與反轉出口</div>
+            <div class="param-group"><label>交易張數</label><input type="number" id="s3535_sh" value="1"></div>
+            <div class="param-group"><label>固定停利 (%)</label><input type="number" id="s3535_tp" value="13.0" step="0.1"></div>
+            <div class="param-group"><label>固定停損 (%)</label><input type="number" id="s3535_sl" value="7.0" step="0.1"></div>
+            <div class="section-title">進場過濾參數</div>
+            <div class="param-group"><label>進場均線參考</label><select id="s3535_ma"><option value="none">不參考</option><option value="ma5">MA 5</option><option value="ma20" selected>MA 20</option><option value="ma60">MA 60</option><option value="ma120">MA 120</option></select></div>
+            <div class="param-group"><label>超賣區 (MFI <)</label><input type="number" id="s3535_mfi_s" value="25.0" step="1"></div>
+            <div class="param-group"><label>超買區 (MFI >)</label><input type="number" id="s3535_mfi_b" value="80.0" step="1"></div>
+        </div>
+        
+        <div class="info-panel">
+            <h4>💡 重新設計高勝率 Top 3 最佳化組合</h4>
+            <table class="info-table">
+                <tr><th>名次</th><th>參數組合</th><th>累積損益</th><th>勝率</th><th>AI 策略註解</th></tr><tr><td>Top 1</td><td>tp:13.0%, sl:7.0%, mfi_s:25.0, mfi_b:80.0</td><td>$17,300</td><td>83.3%</td><td>🏆 最高報酬：完美捕捉大趨勢波段。</td></tr><tr><td>Top 2</td><td>tp:13.0%, sl:8.0%, mfi_s:25.0, mfi_b:80.0</td><td>$17,300</td><td>83.3%</td><td>⭐ 極高勝率：穩定度極佳，幾乎不虧損。</td></tr><tr><td>Top 3</td><td>tp:13.0%, sl:9.0%, mfi_s:25.0, mfi_b:80.0</td><td>$17,300</td><td>83.3%</td><td>⭐ 極高勝率：穩定度極佳，幾乎不虧損。</td></tr></table></div>
+        <div class="drop-zone" id="s3535_drop"><strong>將 3535 檔案拖入此處</strong><br>策略：V_Rebound<input type="file" id="s3535_file" hidden></div>
+        <div id="s3535_filename" class="file-info">未載入檔案</div>
+        <div class="dashboard" id="s3535_dash"></div>
+        <div class="chart-wrap"><canvas id="s3535_chart"></canvas></div>
+        <table id="s3535_table"><thead><tr><th>類型</th><th>日期</th><th>價格</th><th>原因</th><th>損益(元)</th></tr></thead><tbody></tbody></table>
+    </div>
+    
+    <div id="tab_4908" class="page">
+        <h3 style="text-align:center; color:#1e40af;">前鼎 (4908) 高勝率修正策略 - V_Rebound</h3>
+        <div class="control-panel">
+            <div class="section-title">資金與反轉出口</div>
+            <div class="param-group"><label>交易張數</label><input type="number" id="s4908_sh" value="1"></div>
+            <div class="param-group"><label>固定停利 (%)</label><input type="number" id="s4908_tp" value="14.0" step="0.1"></div>
+            <div class="param-group"><label>固定停損 (%)</label><input type="number" id="s4908_sl" value="4.0" step="0.1"></div>
+            <div class="section-title">進場過濾參數</div>
+            <div class="param-group"><label>進場均線參考</label><select id="s4908_ma"><option value="none">不參考</option><option value="ma5">MA 5</option><option value="ma20" selected>MA 20</option><option value="ma60">MA 60</option><option value="ma120">MA 120</option></select></div>
+            <div class="param-group"><label>超賣區 (MFI <)</label><input type="number" id="s4908_mfi_s" value="25.0" step="1"></div>
+            <div class="param-group"><label>超買區 (MFI >)</label><input type="number" id="s4908_mfi_b" value="80.0" step="1"></div>
+        </div>
+        
+        <div class="info-panel">
+            <h4>💡 重新設計高勝率 Top 3 最佳化組合</h4>
+            <table class="info-table">
+                <tr><th>名次</th><th>參數組合</th><th>累積損益</th><th>勝率</th><th>AI 策略註解</th></tr><tr><td>Top 1</td><td>tp:14.0%, sl:4.0%, mfi_s:25.0, mfi_b:80.0</td><td>$27,550</td><td>75.0%</td><td>🏆 最高報酬：完美捕捉大趨勢波段。</td></tr><tr><td>Top 2</td><td>tp:14.0%, sl:5.0%, mfi_s:25.0, mfi_b:80.0</td><td>$27,550</td><td>75.0%</td><td>🛡️ 高勝率優選：突破 65% 勝率防線。</td></tr><tr><td>Top 3</td><td>tp:15.0%, sl:4.0%, mfi_s:25.0, mfi_b:80.0</td><td>$27,550</td><td>75.0%</td><td>🛡️ 高勝率優選：突破 65% 勝率防線。</td></tr></table></div>
+        <div class="drop-zone" id="s4908_drop"><strong>將 4908 檔案拖入此處</strong><br>策略：V_Rebound<input type="file" id="s4908_file" hidden></div>
+        <div id="s4908_filename" class="file-info">未載入檔案</div>
+        <div class="dashboard" id="s4908_dash"></div>
+        <div class="chart-wrap"><canvas id="s4908_chart"></canvas></div>
+        <table id="s4908_table"><thead><tr><th>類型</th><th>日期</th><th>價格</th><th>原因</th><th>損益(元)</th></tr></thead><tbody></tbody></table>
+    </div>
+    
+    <div id="tab_6269" class="page">
+        <h3 style="text-align:center; color:#1e40af;">台郡 (6269) 高勝率修正策略 - V_Rebound</h3>
+        <div class="control-panel">
+            <div class="section-title">資金與反轉出口</div>
+            <div class="param-group"><label>交易張數</label><input type="number" id="s6269_sh" value="1"></div>
+            <div class="param-group"><label>固定停利 (%)</label><input type="number" id="s6269_tp" value="9.0" step="0.1"></div>
+            <div class="param-group"><label>固定停損 (%)</label><input type="number" id="s6269_sl" value="7.0" step="0.1"></div>
+            <div class="section-title">進場過濾參數</div>
+            <div class="param-group"><label>進場均線參考</label><select id="s6269_ma"><option value="none">不參考</option><option value="ma5">MA 5</option><option value="ma20" selected>MA 20</option><option value="ma60">MA 60</option><option value="ma120">MA 120</option></select></div>
+            <div class="param-group"><label>超賣區 (MFI <)</label><input type="number" id="s6269_mfi_s" value="25.0" step="1"></div>
+            <div class="param-group"><label>超買區 (MFI >)</label><input type="number" id="s6269_mfi_b" value="75.0" step="1"></div>
+        </div>
+        
+        <div class="info-panel">
+            <h4>💡 重新設計高勝率 Top 3 最佳化組合</h4>
+            <table class="info-table">
+                <tr><th>名次</th><th>參數組合</th><th>累積損益</th><th>勝率</th><th>AI 策略註解</th></tr><tr><td>Top 1</td><td>tp:9.0%, sl:7.0%, mfi_s:25.0, mfi_b:75.0</td><td>$21,400</td><td>80.0%</td><td>🏆 最高報酬：完美捕捉大趨勢波段。</td></tr><tr><td>Top 2</td><td>tp:9.0%, sl:8.0%, mfi_s:25.0, mfi_b:75.0</td><td>$20,700</td><td>80.0%</td><td>⭐ 極高勝率：穩定度極佳，幾乎不虧損。</td></tr><tr><td>Top 3</td><td>tp:8.0%, sl:7.0%, mfi_s:25.0, mfi_b:75.0</td><td>$20,000</td><td>80.0%</td><td>⭐ 極高勝率：穩定度極佳，幾乎不虧損。</td></tr></table></div>
+        <div class="drop-zone" id="s6269_drop"><strong>將 6269 檔案拖入此處</strong><br>策略：V_Rebound<input type="file" id="s6269_file" hidden></div>
+        <div id="s6269_filename" class="file-info">未載入檔案</div>
+        <div class="dashboard" id="s6269_dash"></div>
+        <div class="chart-wrap"><canvas id="s6269_chart"></canvas></div>
+        <table id="s6269_table"><thead><tr><th>類型</th><th>日期</th><th>價格</th><th>原因</th><th>損益(元)</th></tr></thead><tbody></tbody></table>
+    </div>
+    
+    <div id="tab_4746" class="page">
+        <h3 style="text-align:center; color:#1e40af;">台耀 (4746) 高勝率修正策略 - V_Dip_Buy</h3>
+        <div class="control-panel">
+            <div class="section-title">資金與動能出口</div>
+            <div class="param-group"><label>交易張數</label><input type="number" id="s4746_sh" value="1"></div>
+            <div class="param-group"><label>固定停利 (%)</label><input type="number" id="s4746_tp" value="8.0" step="0.1"></div>
+            <div class="param-group"><label>固定停損 (%)</label><input type="number" id="s4746_sl" value="4.0" step="0.1"></div>
+            <div class="section-title">進場過濾參數</div>
+            <div class="param-group"><label>進場均線參考</label><select id="s4746_ma"><option value="none">不參考</option><option value="ma5">MA 5</option><option value="ma20" selected>MA 20</option><option value="ma60">MA 60</option><option value="ma120">MA 120</option></select></div>
+            <div class="param-group"><label>超賣區 (MFI <)</label><input type="number" id="s4746_mfi_s" value="30.0" step="1"></div>
+            <div class="param-group"><label>超買區 (MFI >)</label><input type="number" id="s4746_mfi_b" value="80.0" step="1"></div>
+        </div>
+        
+        <div class="info-panel">
+            <h4>💡 重新設計高勝率 Top 3 最佳化組合</h4>
+            <table class="info-table">
+                <tr><th>名次</th><th>參數組合</th><th>累積損益</th><th>勝率</th><th>AI 策略註解</th></tr><tr><td>Top 1</td><td>tp:8.0%, sl:4.0%, mfi_s:30.0, mfi_b:80.0</td><td>$7,400</td><td>66.7%</td><td>🏆 最高報酬：完美捕捉大趨勢波段。</td></tr><tr><td>Top 2</td><td>tp:8.0%, sl:5.0%, mfi_s:30.0, mfi_b:80.0</td><td>$7,300</td><td>66.7%</td><td>🛡️ 高勝率優選：突破 65% 勝率防線。</td></tr><tr><td>Top 3</td><td>tp:8.0%, sl:6.0%, mfi_s:30.0, mfi_b:80.0</td><td>$6,200</td><td>66.7%</td><td>🛡️ 高勝率優選：突破 65% 勝率防線。</td></tr></table></div>
+        <div class="drop-zone" id="s4746_drop"><strong>將 4746 檔案拖入此處</strong><br>策略：V_Dip_Buy<input type="file" id="s4746_file" hidden></div>
+        <div id="s4746_filename" class="file-info">未載入檔案</div>
+        <div class="dashboard" id="s4746_dash"></div>
+        <div class="chart-wrap"><canvas id="s4746_chart"></canvas></div>
+        <table id="s4746_table"><thead><tr><th>類型</th><th>日期</th><th>價格</th><th>原因</th><th>損益(元)</th></tr></thead><tbody></tbody></table>
+    </div>
+    
+    <div id="tab_6261" class="page">
+        <h3 style="text-align:center; color:#1e40af;">久元 (6261) 高勝率修正策略 - V_Dip_Buy</h3>
+        <div class="control-panel">
+            <div class="section-title">資金與動能出口</div>
+            <div class="param-group"><label>交易張數</label><input type="number" id="s6261_sh" value="1"></div>
+            <div class="param-group"><label>固定停利 (%)</label><input type="number" id="s6261_tp" value="8.0" step="0.1"></div>
+            <div class="param-group"><label>固定停損 (%)</label><input type="number" id="s6261_sl" value="4.0" step="0.1"></div>
+            <div class="section-title">進場過濾參數</div>
+            <div class="param-group"><label>進場均線參考</label><select id="s6261_ma"><option value="none">不參考</option><option value="ma5">MA 5</option><option value="ma20" selected>MA 20</option><option value="ma60">MA 60</option><option value="ma120">MA 120</option></select></div>
+            <div class="param-group"><label>超賣區 (MFI <)</label><input type="number" id="s6261_mfi_s" value="30.0" step="1"></div>
+            <div class="param-group"><label>超買區 (MFI >)</label><input type="number" id="s6261_mfi_b" value="80.0" step="1"></div>
+        </div>
+        
+        <div class="info-panel">
+            <h4>💡 重新設計高勝率 Top 3 最佳化組合</h4>
+            <table class="info-table">
+                <tr><th>名次</th><th>參數組合</th><th>累積損益</th><th>勝率</th><th>AI 策略註解</th></tr><tr><td>Top 1</td><td>tp:8.0%, sl:4.0%, mfi_s:30.0, mfi_b:80.0</td><td>$12,700</td><td>100.0%</td><td>🏆 最高報酬：完美捕捉大趨勢波段。</td></tr><tr><td>Top 2</td><td>tp:8.0%, sl:5.0%, mfi_s:30.0, mfi_b:80.0</td><td>$12,700</td><td>100.0%</td><td>⭐ 極高勝率：穩定度極佳，幾乎不虧損。</td></tr><tr><td>Top 3</td><td>tp:8.0%, sl:6.0%, mfi_s:30.0, mfi_b:80.0</td><td>$12,700</td><td>100.0%</td><td>⭐ 極高勝率：穩定度極佳，幾乎不虧損。</td></tr></table></div>
+        <div class="drop-zone" id="s6261_drop"><strong>將 6261 檔案拖入此處</strong><br>策略：V_Dip_Buy<input type="file" id="s6261_file" hidden></div>
+        <div id="s6261_filename" class="file-info">未載入檔案</div>
+        <div class="dashboard" id="s6261_dash"></div>
+        <div class="chart-wrap"><canvas id="s6261_chart"></canvas></div>
+        <table id="s6261_table"><thead><tr><th>類型</th><th>日期</th><th>價格</th><th>原因</th><th>損益(元)</th></tr></thead><tbody></tbody></table>
+    </div>
+    </div>
+
+<script>
+const verticalLinePlugin = {
+    id: 'verticalLinePlugin',
+    beforeDraw(chart) {
+        const { ctx, chartArea: { top, bottom }, scales: { x } } = chart;
+        chart.data.datasets.forEach(dataset => {
+            if (dataset.lineType) {
+                ctx.save(); ctx.lineWidth = 2;
+                ctx.strokeStyle = dataset.lineType === 'buy' ? 'rgba(220, 38, 38, 0.6)' : 'rgba(22, 163, 74, 0.6)';
+                dataset.data.forEach((val, idx) => {
+                    if (val !== null) {
+                        const xPos = x.getPixelForValue(chart.data.labels[idx]);
+                        ctx.beginPath(); ctx.moveTo(xPos, top); ctx.lineTo(xPos, bottom); ctx.stroke();
+                    }
+                });
+                ctx.restore();
+            }
+        });
+    }
+};
+Chart.register(verticalLinePlugin);
+
+function switchTab(target) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(target).classList.add('active');
+    event.currentTarget.classList.add('active');
+}
+
+const parseData = (rows) => {
+    const p = (v) => v ? parseFloat(String(v).replace(/[↑↓,%\s]/g, '')) || 0 : 0;
+    return rows.filter(r => r[0] && (String(r[0]).includes('/') || /^\d{8}$/.test(r[0]))).map(r => ({
+        date: String(r[0]).trim(), open: p(r[1]), high: p(r[2]), low: p(r[3]), close: p(r[4]),
+        ma5: p(r[6]), ma20: p(r[7]), ma60: p(r[8]), ma120: p(r[9]), eom: p(r[10]), eomSig: p(r[11]), mfi: p(r[12]), macd: p(r[14])
+    }));
+};
+
+function updateUI(pre, trd, tot, mCap, ds, bi, si) {
+    const sls = trd.filter(t => t.type === '賣出');
+    const pnls = sls.map(t => t.pnl);
+    const cnt = sls.length, win = pnls.filter(v => v > 0).length;
+    const mxP = cnt > 0 ? Math.max(...pnls) : 0, mxL = cnt > 0 ? Math.min(...pnls) : 0;
+    const avg = cnt > 0 ? tot / cnt : 0;
+    const avgEnt = cnt > 0 ? (sls.reduce((sum, t) => sum + t.entP, 0) / cnt) * (parseInt(document.getElementById(pre+'_sh').value)*1000) : 1;
+    const expR = (avg / avgEnt) * 100;
+
+    document.getElementById(pre + '_dash').innerHTML = `
+        <div class="stat-card"><b>累積淨損益總額</b><span class="${tot>=0?'win':'loss'}">$${Math.round(tot).toLocaleString()}</span></div>
+        <div class="stat-card"><b>最大所需本金</b><span>$${Math.round(mCap).toLocaleString()}</span></div>
+        <div class="stat-card"><b>真實投報率 (ROI)</b><span class="${tot>=0?'win':'loss'}">${mCap>0?(tot/mCap*100).toFixed(2):0}%</span></div>
+        <div class="stat-card"><b>交易次數 / 勝率</b><span>${cnt}次 / ${cnt>0?(win/cnt*100).toFixed(1):0}%</span></div>
+        <div class="stat-card"><b>單筆最大獲利</b><span class="win">$${Math.round(mxP).toLocaleString()}</span></div>
+        <div class="stat-card"><b>單筆最大虧損</b><span class="loss">$${Math.round(mxL).toLocaleString()}</span></div>
+        <div class="stat-card"><b>平均每筆損益</b><span class="${avg>=0?'win':'loss'}">$${Math.round(avg).toLocaleString()}</span></div>
+        <div class="stat-card"><b>期望報酬率 (每筆)</b><span class="${expR>=0?'win':'loss'}">${expR.toFixed(2)}%</span></div>
+    `;
+
+    const tbody = document.querySelector(`#${pre}_table tbody`);
+    tbody.innerHTML = trd.map(t => `
+        <tr class="${t.type==='買入'?'buy-row':'sell-row'}">
+            <td><b>${t.type}</b></td><td>${t.date}</td><td>${t.price.toFixed(1)}</td><td>${t.info}</td>
+            <td class="${t.pnl>0?'win':(t.pnl<0?'loss':'')}">${t.pnl?Math.round(t.pnl).toLocaleString():'-'}</td>
+        </tr>
+    `).reverse().join('');
+
+    const ctx = document.getElementById(pre + '_chart');
+    if (charts[pre]) charts[pre].destroy();
+    charts[pre] = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: ds.map(d => d.date),
+            datasets: [
+                { label: '收盤價', data: ds.map(d => d.close), borderColor: '#475569', borderWidth: 1, pointRadius: 0, yAxisID: 'y' },
+                { data: bi, lineType: 'buy', pointRadius: 0, yAxisID: 'y_sub' },
+                { data: si, lineType: 'sell', pointRadius: 0, yAxisID: 'y_sub' }
+            ]
+        },
+        options: {
+            maintainAspectRatio: false,
+            scales: { y: { type: 'linear', position: 'left' }, y_sub: { display: false, min: 0, max: 1 } },
+            plugins: { legend: { display: false } }
+        }
+    });
+}
+let charts = {};
+let dataStore = {};
+charts['s2330'] = null; dataStore['s2330'] = null;
+charts['s2360'] = null; dataStore['s2360'] = null;
+charts['s6205'] = null; dataStore['s6205'] = null;
+charts['s6669'] = null; dataStore['s6669'] = null;
+charts['s3443'] = null; dataStore['s3443'] = null;
+charts['s3189'] = null; dataStore['s3189'] = null;
+charts['s3455'] = null; dataStore['s3455'] = null;
+charts['s3535'] = null; dataStore['s3535'] = null;
+charts['s4908'] = null; dataStore['s4908'] = null;
+charts['s6269'] = null; dataStore['s6269'] = null;
+charts['s4746'] = null; dataStore['s4746'] = null;
+charts['s6261'] = null; dataStore['s6261'] = null;
+
+document.getElementById('s2330_drop').onclick = () => document.getElementById('s2330_file').click();
+document.getElementById('s2330_file').onchange = (e) => {
+    if (e.target.files.length > 0) {
+        document.getElementById('s2330_filename').innerText = "📄 已載入：" + e.target.files[0].name;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const wb = XLSX.read(ev.target.result, {type: 'array'});
+            dataStore['s2330'] = parseData(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header: 1}));
+            run_s2330();
+        };
+        reader.readAsArrayBuffer(e.target.files[0]);
+    }
+};
+document.querySelectorAll('#tab_2330 input, #tab_2330 select').forEach(i => i.oninput = () => dataStore['s2330'] && run_s2330());
+
+function run_s2330() {
+    const ds = dataStore['s2330'];
+    if(!ds) return;
+    const sh = parseInt(document.getElementById('s2330_sh').value) * 1000;
+    let tp=parseFloat(document.getElementById('s2330_tp').value)/100, sl=parseFloat(document.getElementById('s2330_sl').value)/100, macd=parseFloat(document.getElementById('s2330_macd').value), eom=parseFloat(document.getElementById('s2330_eom').value), mfi=parseFloat(document.getElementById('s2330_mfi').value);
+    let maType=document.getElementById('s2330_ma').value;let _gm=function(c){return maType==='ma5'?c.ma5:maType==='ma60'?c.ma60:maType==='ma120'?c.ma120:maType==='ma20'?c.ma20:null;};
+    let trd = [], hold = false, bp = 0, tot = 0, mCap = 0, mPrf = 0;
+    let bi = new Array(ds.length).fill(null), si = new Array(ds.length).fill(null);
+
+    for(let i=1; i<ds.length-1; i++){
+        let c = ds[i], n = ds[i+1], p = ds[i-1];
+        
+            if(!hold){
+                if((_gm(c)===null||c.close>_gm(c)) && c.eom > (c.eomSig + eom) && c.macd > macd && c.mfi > mfi){
+                    hold=true; bp=n.open; bi[i+1]=1; mCap=Math.max(mCap, bp*sh); trd.push({type:'買入', date:n.date, price:bp, info:'V4進場'});
+                }
+            } else {
+                let pnlR = (n.open-bp)/bp;
+                if(pnlR >= tp || pnlR <= -sl){
+                    hold=false; let ep=n.open; let diff=(ep-bp)*sh; tot+=diff; si[i+1]=1; trd.push({type:'賣出', date:n.date, price:ep, info:pnlR>0?'停利':'停損', pnl:diff, entP:bp});
+                }
+            }
+        
+    }
+    updateUI('s2330', trd, tot, mCap, ds, bi, si);
+}
+
+document.getElementById('s2360_drop').onclick = () => document.getElementById('s2360_file').click();
+document.getElementById('s2360_file').onchange = (e) => {
+    if (e.target.files.length > 0) {
+        document.getElementById('s2360_filename').innerText = "📄 已載入：" + e.target.files[0].name;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const wb = XLSX.read(ev.target.result, {type: 'array'});
+            dataStore['s2360'] = parseData(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header: 1}));
+            run_s2360();
+        };
+        reader.readAsArrayBuffer(e.target.files[0]);
+    }
+};
+document.querySelectorAll('#tab_2360 input, #tab_2360 select').forEach(i => i.oninput = () => dataStore['s2360'] && run_s2360());
+
+function run_s2360() {
+    const ds = dataStore['s2360'];
+    if(!ds) return;
+    const sh = parseInt(document.getElementById('s2360_sh').value) * 1000;
+    let tp=parseFloat(document.getElementById('s2360_tp').value)/100, sl=parseFloat(document.getElementById('s2360_sl').value)/100, macd=parseFloat(document.getElementById('s2360_macd').value), eom=parseFloat(document.getElementById('s2360_eom').value), mfi=parseFloat(document.getElementById('s2360_mfi').value);
+    let maType=document.getElementById('s2360_ma').value;let _gm=function(c){return maType==='ma5'?c.ma5:maType==='ma60'?c.ma60:maType==='ma120'?c.ma120:maType==='ma20'?c.ma20:null;};
+    let trd = [], hold = false, bp = 0, tot = 0, mCap = 0, mPrf = 0;
+    let bi = new Array(ds.length).fill(null), si = new Array(ds.length).fill(null);
+
+    for(let i=1; i<ds.length-1; i++){
+        let c = ds[i], n = ds[i+1], p = ds[i-1];
+        
+            if(!hold){
+                if((_gm(c)===null||c.close>_gm(c)) && c.eom > (c.eomSig + eom) && c.macd > macd && c.mfi > mfi){
+                    hold=true; bp=n.open; bi[i+1]=1; mCap=Math.max(mCap, bp*sh); trd.push({type:'買入', date:n.date, price:bp, info:'V4進場'});
+                }
+            } else {
+                let pnlR = (n.open-bp)/bp;
+                if(pnlR >= tp || pnlR <= -sl){
+                    hold=false; let ep=n.open; let diff=(ep-bp)*sh; tot+=diff; si[i+1]=1; trd.push({type:'賣出', date:n.date, price:ep, info:pnlR>0?'停利':'停損', pnl:diff, entP:bp});
+                }
+            }
+        
+    }
+    updateUI('s2360', trd, tot, mCap, ds, bi, si);
+}
+
+document.getElementById('s6205_drop').onclick = () => document.getElementById('s6205_file').click();
+document.getElementById('s6205_file').onchange = (e) => {
+    if (e.target.files.length > 0) {
+        document.getElementById('s6205_filename').innerText = "📄 已載入：" + e.target.files[0].name;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const wb = XLSX.read(ev.target.result, {type: 'array'});
+            dataStore['s6205'] = parseData(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header: 1}));
+            run_s6205();
+        };
+        reader.readAsArrayBuffer(e.target.files[0]);
+    }
+};
+document.querySelectorAll('#tab_6205 input, #tab_6205 select').forEach(i => i.oninput = () => dataStore['s6205'] && run_s6205());
+
+function run_s6205() {
+    const ds = dataStore['s6205'];
+    if(!ds) return;
+    const sh = parseInt(document.getElementById('s6205_sh').value) * 1000;
+    let tp=parseFloat(document.getElementById('s6205_tp').value)/100, sl=parseFloat(document.getElementById('s6205_sl').value)/100, macd=parseFloat(document.getElementById('s6205_macd').value), eom=parseFloat(document.getElementById('s6205_eom').value), mfi=parseFloat(document.getElementById('s6205_mfi').value);
+    let maType=document.getElementById('s6205_ma').value;let _gm=function(c){return maType==='ma5'?c.ma5:maType==='ma60'?c.ma60:maType==='ma120'?c.ma120:maType==='ma20'?c.ma20:null;};
+    let trd = [], hold = false, bp = 0, tot = 0, mCap = 0, mPrf = 0;
+    let bi = new Array(ds.length).fill(null), si = new Array(ds.length).fill(null);
+
+    for(let i=1; i<ds.length-1; i++){
+        let c = ds[i], n = ds[i+1], p = ds[i-1];
+        
+            if(!hold){
+                if((_gm(c)===null||c.close>_gm(c)) && c.eom > (c.eomSig + eom) && c.macd > macd && c.mfi > mfi){
+                    hold=true; bp=n.open; bi[i+1]=1; mCap=Math.max(mCap, bp*sh); trd.push({type:'買入', date:n.date, price:bp, info:'V4進場'});
+                }
+            } else {
+                let pnlR = (n.open-bp)/bp;
+                if(pnlR >= tp || pnlR <= -sl){
+                    hold=false; let ep=n.open; let diff=(ep-bp)*sh; tot+=diff; si[i+1]=1; trd.push({type:'賣出', date:n.date, price:ep, info:pnlR>0?'停利':'停損', pnl:diff, entP:bp});
+                }
+            }
+        
+    }
+    updateUI('s6205', trd, tot, mCap, ds, bi, si);
+}
+
+document.getElementById('s6669_drop').onclick = () => document.getElementById('s6669_file').click();
+document.getElementById('s6669_file').onchange = (e) => {
+    if (e.target.files.length > 0) {
+        document.getElementById('s6669_filename').innerText = "📄 已載入：" + e.target.files[0].name;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const wb = XLSX.read(ev.target.result, {type: 'array'});
+            dataStore['s6669'] = parseData(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header: 1}));
+            run_s6669();
+        };
+        reader.readAsArrayBuffer(e.target.files[0]);
+    }
+};
+document.querySelectorAll('#tab_6669 input, #tab_6669 select').forEach(i => i.oninput = () => dataStore['s6669'] && run_s6669());
+
+function run_s6669() {
+    const ds = dataStore['s6669'];
+    if(!ds) return;
+    const sh = parseInt(document.getElementById('s6669_sh').value) * 1000;
+    let tp=parseFloat(document.getElementById('s6669_tp').value)/100, sl=parseFloat(document.getElementById('s6669_sl').value)/100, mfi_s=parseFloat(document.getElementById('s6669_mfi_s').value), mfi_b=parseFloat(document.getElementById('s6669_mfi_b').value);
+    let maType=document.getElementById('s6669_ma').value;let _gm=function(c){return maType==='ma5'?c.ma5:maType==='ma60'?c.ma60:maType==='ma120'?c.ma120:maType==='ma20'?c.ma20:null;};
+    let trd = [], hold = false, bp = 0, tot = 0, mCap = 0, mPrf = 0;
+    let bi = new Array(ds.length).fill(null), si = new Array(ds.length).fill(null);
+
+    for(let i=1; i<ds.length-1; i++){
+        let c = ds[i], n = ds[i+1], p = ds[i-1];
+        
+            if(!hold){
+                if((_gm(c)===null||c.close<_gm(c)) && c.mfi < mfi_s && c.macd > p.macd){
+                    hold=true; bp=n.open; bi[i+1]=1; mCap=Math.max(mCap, bp*sh); trd.push({type:'買入', date:n.date, price:bp, info:'逆勢反轉進場'});
+                }
+            } else {
+                let pnlR = (n.open-bp)/bp;
+                if(c.mfi > mfi_b || pnlR >= tp || pnlR <= -sl){
+                    hold=false; let ep=n.open; let diff=(ep-bp)*sh; tot+=diff; si[i+1]=1; trd.push({type:'賣出', date:n.date, price:ep, info:'出場', pnl:diff, entP:bp});
+                }
+            }
+        
+    }
+    updateUI('s6669', trd, tot, mCap, ds, bi, si);
+}
+
+document.getElementById('s3443_drop').onclick = () => document.getElementById('s3443_file').click();
+document.getElementById('s3443_file').onchange = (e) => {
+    if (e.target.files.length > 0) {
+        document.getElementById('s3443_filename').innerText = "📄 已載入：" + e.target.files[0].name;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const wb = XLSX.read(ev.target.result, {type: 'array'});
+            dataStore['s3443'] = parseData(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header: 1}));
+            run_s3443();
+        };
+        reader.readAsArrayBuffer(e.target.files[0]);
+    }
+};
+document.querySelectorAll('#tab_3443 input, #tab_3443 select').forEach(i => i.oninput = () => dataStore['s3443'] && run_s3443());
+
+function run_s3443() {
+    const ds = dataStore['s3443'];
+    if(!ds) return;
+    const sh = parseInt(document.getElementById('s3443_sh').value) * 1000;
+    let tp=parseFloat(document.getElementById('s3443_tp').value)/100, sl=parseFloat(document.getElementById('s3443_sl').value)/100, mfi_s=parseFloat(document.getElementById('s3443_mfi_s').value), mfi_b=parseFloat(document.getElementById('s3443_mfi_b').value);
+    let maType=document.getElementById('s3443_ma').value;let _gm=function(c){return maType==='ma5'?c.ma5:maType==='ma60'?c.ma60:maType==='ma120'?c.ma120:maType==='ma20'?c.ma20:null;};
+    let trd = [], hold = false, bp = 0, tot = 0, mCap = 0, mPrf = 0;
+    let bi = new Array(ds.length).fill(null), si = new Array(ds.length).fill(null);
+
+    for(let i=1; i<ds.length-1; i++){
+        let c = ds[i], n = ds[i+1], p = ds[i-1];
+        
+            if(!hold){
+                if((_gm(c)===null||c.close<_gm(c)) && c.mfi < mfi_s && c.macd > p.macd){
+                    hold=true; bp=n.open; bi[i+1]=1; mCap=Math.max(mCap, bp*sh); trd.push({type:'買入', date:n.date, price:bp, info:'逆勢反轉進場'});
+                }
+            } else {
+                let pnlR = (n.open-bp)/bp;
+                if(c.mfi > mfi_b || pnlR >= tp || pnlR <= -sl){
+                    hold=false; let ep=n.open; let diff=(ep-bp)*sh; tot+=diff; si[i+1]=1; trd.push({type:'賣出', date:n.date, price:ep, info:'出場', pnl:diff, entP:bp});
+                }
+            }
+        
+    }
+    updateUI('s3443', trd, tot, mCap, ds, bi, si);
+}
+
+document.getElementById('s3189_drop').onclick = () => document.getElementById('s3189_file').click();
+document.getElementById('s3189_file').onchange = (e) => {
+    if (e.target.files.length > 0) {
+        document.getElementById('s3189_filename').innerText = "📄 已載入：" + e.target.files[0].name;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const wb = XLSX.read(ev.target.result, {type: 'array'});
+            dataStore['s3189'] = parseData(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header: 1}));
+            run_s3189();
+        };
+        reader.readAsArrayBuffer(e.target.files[0]);
+    }
+};
+document.querySelectorAll('#tab_3189 input, #tab_3189 select').forEach(i => i.oninput = () => dataStore['s3189'] && run_s3189());
+
+function run_s3189() {
+    const ds = dataStore['s3189'];
+    if(!ds) return;
+    const sh = parseInt(document.getElementById('s3189_sh').value) * 1000;
+    let tp=parseFloat(document.getElementById('s3189_tp').value)/100, sl=parseFloat(document.getElementById('s3189_sl').value)/100, mfi_s=parseFloat(document.getElementById('s3189_mfi_s').value), mfi_b=parseFloat(document.getElementById('s3189_mfi_b').value);
+    let maType=document.getElementById('s3189_ma').value;let _gm=function(c){return maType==='ma5'?c.ma5:maType==='ma60'?c.ma60:maType==='ma120'?c.ma120:maType==='ma20'?c.ma20:null;};
+    let trd = [], hold = false, bp = 0, tot = 0, mCap = 0, mPrf = 0;
+    let bi = new Array(ds.length).fill(null), si = new Array(ds.length).fill(null);
+
+    for(let i=1; i<ds.length-1; i++){
+        let c = ds[i], n = ds[i+1], p = ds[i-1];
+        
+            if(!hold){
+                if((_gm(c)===null||c.close<_gm(c)) && c.mfi < mfi_s && c.macd > p.macd){
+                    hold=true; bp=n.open; bi[i+1]=1; mCap=Math.max(mCap, bp*sh); trd.push({type:'買入', date:n.date, price:bp, info:'逆勢反轉進場'});
+                }
+            } else {
+                let pnlR = (n.open-bp)/bp;
+                if(c.mfi > mfi_b || pnlR >= tp || pnlR <= -sl){
+                    hold=false; let ep=n.open; let diff=(ep-bp)*sh; tot+=diff; si[i+1]=1; trd.push({type:'賣出', date:n.date, price:ep, info:'出場', pnl:diff, entP:bp});
+                }
+            }
+        
+    }
+    updateUI('s3189', trd, tot, mCap, ds, bi, si);
+}
+
+document.getElementById('s3455_drop').onclick = () => document.getElementById('s3455_file').click();
+document.getElementById('s3455_file').onchange = (e) => {
+    if (e.target.files.length > 0) {
+        document.getElementById('s3455_filename').innerText = "📄 已載入：" + e.target.files[0].name;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const wb = XLSX.read(ev.target.result, {type: 'array'});
+            dataStore['s3455'] = parseData(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header: 1}));
+            run_s3455();
+        };
+        reader.readAsArrayBuffer(e.target.files[0]);
+    }
+};
+document.querySelectorAll('#tab_3455 input, #tab_3455 select').forEach(i => i.oninput = () => dataStore['s3455'] && run_s3455());
+
+function run_s3455() {
+    const ds = dataStore['s3455'];
+    if(!ds) return;
+    const sh = parseInt(document.getElementById('s3455_sh').value) * 1000;
+    let tp=parseFloat(document.getElementById('s3455_tp').value)/100, sl=parseFloat(document.getElementById('s3455_sl').value)/100, mfi_s=parseFloat(document.getElementById('s3455_mfi_s').value), mfi_b=parseFloat(document.getElementById('s3455_mfi_b').value);
+    let maType=document.getElementById('s3455_ma').value;let _gm=function(c){return maType==='ma5'?c.ma5:maType==='ma60'?c.ma60:maType==='ma120'?c.ma120:maType==='ma20'?c.ma20:null;};
+    let trd = [], hold = false, bp = 0, tot = 0, mCap = 0, mPrf = 0;
+    let bi = new Array(ds.length).fill(null), si = new Array(ds.length).fill(null);
+
+    for(let i=1; i<ds.length-1; i++){
+        let c = ds[i], n = ds[i+1], p = ds[i-1];
+        
+            if(!hold){
+                if((_gm(c)===null||c.close<_gm(c)) && c.mfi < mfi_s && c.macd > p.macd){
+                    hold=true; bp=n.open; bi[i+1]=1; mCap=Math.max(mCap, bp*sh); trd.push({type:'買入', date:n.date, price:bp, info:'逆勢反轉進場'});
+                }
+            } else {
+                let pnlR = (n.open-bp)/bp;
+                if(c.mfi > mfi_b || pnlR >= tp || pnlR <= -sl){
+                    hold=false; let ep=n.open; let diff=(ep-bp)*sh; tot+=diff; si[i+1]=1; trd.push({type:'賣出', date:n.date, price:ep, info:'出場', pnl:diff, entP:bp});
+                }
+            }
+        
+    }
+    updateUI('s3455', trd, tot, mCap, ds, bi, si);
+}
+
+document.getElementById('s3535_drop').onclick = () => document.getElementById('s3535_file').click();
+document.getElementById('s3535_file').onchange = (e) => {
+    if (e.target.files.length > 0) {
+        document.getElementById('s3535_filename').innerText = "📄 已載入：" + e.target.files[0].name;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const wb = XLSX.read(ev.target.result, {type: 'array'});
+            dataStore['s3535'] = parseData(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header: 1}));
+            run_s3535();
+        };
+        reader.readAsArrayBuffer(e.target.files[0]);
+    }
+};
+document.querySelectorAll('#tab_3535 input, #tab_3535 select').forEach(i => i.oninput = () => dataStore['s3535'] && run_s3535());
+
+function run_s3535() {
+    const ds = dataStore['s3535'];
+    if(!ds) return;
+    const sh = parseInt(document.getElementById('s3535_sh').value) * 1000;
+    let tp=parseFloat(document.getElementById('s3535_tp').value)/100, sl=parseFloat(document.getElementById('s3535_sl').value)/100, mfi_s=parseFloat(document.getElementById('s3535_mfi_s').value), mfi_b=parseFloat(document.getElementById('s3535_mfi_b').value);
+    let maType=document.getElementById('s3535_ma').value;let _gm=function(c){return maType==='ma5'?c.ma5:maType==='ma60'?c.ma60:maType==='ma120'?c.ma120:maType==='ma20'?c.ma20:null;};
+    let trd = [], hold = false, bp = 0, tot = 0, mCap = 0, mPrf = 0;
+    let bi = new Array(ds.length).fill(null), si = new Array(ds.length).fill(null);
+
+    for(let i=1; i<ds.length-1; i++){
+        let c = ds[i], n = ds[i+1], p = ds[i-1];
+        
+            if(!hold){
+                if((_gm(c)===null||c.close<_gm(c)) && c.mfi < mfi_s && c.macd > p.macd){
+                    hold=true; bp=n.open; bi[i+1]=1; mCap=Math.max(mCap, bp*sh); trd.push({type:'買入', date:n.date, price:bp, info:'逆勢反轉進場'});
+                }
+            } else {
+                let pnlR = (n.open-bp)/bp;
+                if(c.mfi > mfi_b || pnlR >= tp || pnlR <= -sl){
+                    hold=false; let ep=n.open; let diff=(ep-bp)*sh; tot+=diff; si[i+1]=1; trd.push({type:'賣出', date:n.date, price:ep, info:'出場', pnl:diff, entP:bp});
+                }
+            }
+        
+    }
+    updateUI('s3535', trd, tot, mCap, ds, bi, si);
+}
+
+document.getElementById('s4908_drop').onclick = () => document.getElementById('s4908_file').click();
+document.getElementById('s4908_file').onchange = (e) => {
+    if (e.target.files.length > 0) {
+        document.getElementById('s4908_filename').innerText = "📄 已載入：" + e.target.files[0].name;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const wb = XLSX.read(ev.target.result, {type: 'array'});
+            dataStore['s4908'] = parseData(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header: 1}));
+            run_s4908();
+        };
+        reader.readAsArrayBuffer(e.target.files[0]);
+    }
+};
+document.querySelectorAll('#tab_4908 input, #tab_4908 select').forEach(i => i.oninput = () => dataStore['s4908'] && run_s4908());
+
+function run_s4908() {
+    const ds = dataStore['s4908'];
+    if(!ds) return;
+    const sh = parseInt(document.getElementById('s4908_sh').value) * 1000;
+    let tp=parseFloat(document.getElementById('s4908_tp').value)/100, sl=parseFloat(document.getElementById('s4908_sl').value)/100, mfi_s=parseFloat(document.getElementById('s4908_mfi_s').value), mfi_b=parseFloat(document.getElementById('s4908_mfi_b').value);
+    let maType=document.getElementById('s4908_ma').value;let _gm=function(c){return maType==='ma5'?c.ma5:maType==='ma60'?c.ma60:maType==='ma120'?c.ma120:maType==='ma20'?c.ma20:null;};
+    let trd = [], hold = false, bp = 0, tot = 0, mCap = 0, mPrf = 0;
+    let bi = new Array(ds.length).fill(null), si = new Array(ds.length).fill(null);
+
+    for(let i=1; i<ds.length-1; i++){
+        let c = ds[i], n = ds[i+1], p = ds[i-1];
+        
+            if(!hold){
+                if((_gm(c)===null||c.close<_gm(c)) && c.mfi < mfi_s && c.macd > p.macd){
+                    hold=true; bp=n.open; bi[i+1]=1; mCap=Math.max(mCap, bp*sh); trd.push({type:'買入', date:n.date, price:bp, info:'逆勢反轉進場'});
+                }
+            } else {
+                let pnlR = (n.open-bp)/bp;
+                if(c.mfi > mfi_b || pnlR >= tp || pnlR <= -sl){
+                    hold=false; let ep=n.open; let diff=(ep-bp)*sh; tot+=diff; si[i+1]=1; trd.push({type:'賣出', date:n.date, price:ep, info:'出場', pnl:diff, entP:bp});
+                }
+            }
+        
+    }
+    updateUI('s4908', trd, tot, mCap, ds, bi, si);
+}
+
+document.getElementById('s6269_drop').onclick = () => document.getElementById('s6269_file').click();
+document.getElementById('s6269_file').onchange = (e) => {
+    if (e.target.files.length > 0) {
+        document.getElementById('s6269_filename').innerText = "📄 已載入：" + e.target.files[0].name;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const wb = XLSX.read(ev.target.result, {type: 'array'});
+            dataStore['s6269'] = parseData(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header: 1}));
+            run_s6269();
+        };
+        reader.readAsArrayBuffer(e.target.files[0]);
+    }
+};
+document.querySelectorAll('#tab_6269 input, #tab_6269 select').forEach(i => i.oninput = () => dataStore['s6269'] && run_s6269());
+
+function run_s6269() {
+    const ds = dataStore['s6269'];
+    if(!ds) return;
+    const sh = parseInt(document.getElementById('s6269_sh').value) * 1000;
+    let tp=parseFloat(document.getElementById('s6269_tp').value)/100, sl=parseFloat(document.getElementById('s6269_sl').value)/100, mfi_s=parseFloat(document.getElementById('s6269_mfi_s').value), mfi_b=parseFloat(document.getElementById('s6269_mfi_b').value);
+    let maType=document.getElementById('s6269_ma').value;let _gm=function(c){return maType==='ma5'?c.ma5:maType==='ma60'?c.ma60:maType==='ma120'?c.ma120:maType==='ma20'?c.ma20:null;};
+    let trd = [], hold = false, bp = 0, tot = 0, mCap = 0, mPrf = 0;
+    let bi = new Array(ds.length).fill(null), si = new Array(ds.length).fill(null);
+
+    for(let i=1; i<ds.length-1; i++){
+        let c = ds[i], n = ds[i+1], p = ds[i-1];
+        
+            if(!hold){
+                if((_gm(c)===null||c.close<_gm(c)) && c.mfi < mfi_s && c.macd > p.macd){
+                    hold=true; bp=n.open; bi[i+1]=1; mCap=Math.max(mCap, bp*sh); trd.push({type:'買入', date:n.date, price:bp, info:'逆勢反轉進場'});
+                }
+            } else {
+                let pnlR = (n.open-bp)/bp;
+                if(c.mfi > mfi_b || pnlR >= tp || pnlR <= -sl){
+                    hold=false; let ep=n.open; let diff=(ep-bp)*sh; tot+=diff; si[i+1]=1; trd.push({type:'賣出', date:n.date, price:ep, info:'出場', pnl:diff, entP:bp});
+                }
+            }
+        
+    }
+    updateUI('s6269', trd, tot, mCap, ds, bi, si);
+}
+
+document.getElementById('s4746_drop').onclick = () => document.getElementById('s4746_file').click();
+document.getElementById('s4746_file').onchange = (e) => {
+    if (e.target.files.length > 0) {
+        document.getElementById('s4746_filename').innerText = "📄 已載入：" + e.target.files[0].name;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const wb = XLSX.read(ev.target.result, {type: 'array'});
+            dataStore['s4746'] = parseData(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header: 1}));
+            run_s4746();
+        };
+        reader.readAsArrayBuffer(e.target.files[0]);
+    }
+};
+document.querySelectorAll('#tab_4746 input, #tab_4746 select').forEach(i => i.oninput = () => dataStore['s4746'] && run_s4746());
+
+function run_s4746() {
+    const ds = dataStore['s4746'];
+    if(!ds) return;
+    const sh = parseInt(document.getElementById('s4746_sh').value) * 1000;
+    let tp=parseFloat(document.getElementById('s4746_tp').value)/100, sl=parseFloat(document.getElementById('s4746_sl').value)/100, mfi_s=parseFloat(document.getElementById('s4746_mfi_s').value), mfi_b=parseFloat(document.getElementById('s4746_mfi_b').value);
+    let maType=document.getElementById('s4746_ma').value;let _gm=function(c){return maType==='ma5'?c.ma5:maType==='ma60'?c.ma60:maType==='ma120'?c.ma120:maType==='ma20'?c.ma20:null;};
+    let trd = [], hold = false, bp = 0, tot = 0, mCap = 0, mPrf = 0;
+    let bi = new Array(ds.length).fill(null), si = new Array(ds.length).fill(null);
+
+    for(let i=1; i<ds.length-1; i++){
+        let c = ds[i], n = ds[i+1], p = ds[i-1];
+        
+            if(!hold){
+                if((_gm(c)===null||c.close>_gm(c)) && c.mfi < mfi_s && c.eom > p.eom && c.macd > 0){
+                    hold=true; bp=n.open; bi[i+1]=1; mCap=Math.max(mCap, bp*sh); trd.push({type:'買入', date:n.date, price:bp, info:'動能低接進場'});
+                }
+            } else {
+                let pnlR = (n.open-bp)/bp;
+                if(c.mfi > mfi_b || pnlR >= tp || pnlR <= -sl){
+                    hold=false; let ep=n.open; let diff=(ep-bp)*sh; tot+=diff; si[i+1]=1; trd.push({type:'賣出', date:n.date, price:ep, info:'出場', pnl:diff, entP:bp});
+                }
+            }
+        
+    }
+    updateUI('s4746', trd, tot, mCap, ds, bi, si);
+}
+
+document.getElementById('s6261_drop').onclick = () => document.getElementById('s6261_file').click();
+document.getElementById('s6261_file').onchange = (e) => {
+    if (e.target.files.length > 0) {
+        document.getElementById('s6261_filename').innerText = "📄 已載入：" + e.target.files[0].name;
+        const reader = new FileReader();
+        reader.onload = (ev) => {
+            const wb = XLSX.read(ev.target.result, {type: 'array'});
+            dataStore['s6261'] = parseData(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header: 1}));
+            run_s6261();
+        };
+        reader.readAsArrayBuffer(e.target.files[0]);
+    }
+};
+document.querySelectorAll('#tab_6261 input, #tab_6261 select').forEach(i => i.oninput = () => dataStore['s6261'] && run_s6261());
+
+function run_s6261() {
+    const ds = dataStore['s6261'];
+    if(!ds) return;
+    const sh = parseInt(document.getElementById('s6261_sh').value) * 1000;
+    let tp=parseFloat(document.getElementById('s6261_tp').value)/100, sl=parseFloat(document.getElementById('s6261_sl').value)/100, mfi_s=parseFloat(document.getElementById('s6261_mfi_s').value), mfi_b=parseFloat(document.getElementById('s6261_mfi_b').value);
+    let maType=document.getElementById('s6261_ma').value;let _gm=function(c){return maType==='ma5'?c.ma5:maType==='ma60'?c.ma60:maType==='ma120'?c.ma120:maType==='ma20'?c.ma20:null;};
+    let trd = [], hold = false, bp = 0, tot = 0, mCap = 0, mPrf = 0;
+    let bi = new Array(ds.length).fill(null), si = new Array(ds.length).fill(null);
+
+    for(let i=1; i<ds.length-1; i++){
+        let c = ds[i], n = ds[i+1], p = ds[i-1];
+        
+            if(!hold){
+                if((_gm(c)===null||c.close>_gm(c)) && c.mfi < mfi_s && c.eom > p.eom && c.macd > 0){
+                    hold=true; bp=n.open; bi[i+1]=1; mCap=Math.max(mCap, bp*sh); trd.push({type:'買入', date:n.date, price:bp, info:'動能低接進場'});
+                }
+            } else {
+                let pnlR = (n.open-bp)/bp;
+                if(c.mfi > mfi_b || pnlR >= tp || pnlR <= -sl){
+                    hold=false; let ep=n.open; let diff=(ep-bp)*sh; tot+=diff; si[i+1]=1; trd.push({type:'賣出', date:n.date, price:ep, info:'出場', pnl:diff, entP:bp});
+                }
+            }
+        
+    }
+    updateUI('s6261', trd, tot, mCap, ds, bi, si);
+}
+</script>
+</body>
+</html>

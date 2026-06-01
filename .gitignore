@@ -1,0 +1,41 @@
+# Virtual Environment
+.venv/
+venv/
+ENV/
+
+# Python caching
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Node.js
+node_modules/
+wip-monitor-web/node_modules/
+
+# Builds and distributions
+build/
+dist/
+*.spec
+*.exe
+
+# Portable Python folder
+portable_py38_32/
+
+# User-specific data or inputs
+WIP Status/
+E:/G-AI-1/WIP Status/
+E:/@WIP交通觀測/WIP Status/
+*.xls
+*.xlsx
+*.doc
+*.docx
+*.pdf
+
+# Logs & temporary files
+*.log
+.gemini/
+scratch/
+temp_official_form.docx
+cols.json
+temp_*
