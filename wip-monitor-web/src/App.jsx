@@ -203,7 +203,7 @@ function App() {
         <header>
           <div className="logo">
             <Layers className="icon" />
-            <h1>WIP Status (v1.8)</h1>
+            <h1>WIP Status (v1.9)</h1>
           </div>
           <p className="update-time">
             <Clock size={14} /> Last Sync: {data.last_update}

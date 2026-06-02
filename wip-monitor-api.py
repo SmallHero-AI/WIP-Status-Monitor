@@ -67,7 +67,7 @@ def prompt_config():
             root.withdraw()
             
             use_default = messagebox.askyesno(
-                "WIP Monitor v1.8 配置",
+                "WIP Monitor v1.9 配置",
                 "是否使用預設分析路徑與自動複製母檔？\n\n"
                 f"預設分析路徑：{default_analysis}\n"
                 f"預設原始路徑：{default_source}"
@@ -84,7 +84,7 @@ def prompt_config():
             # If No, continue with original UI
             root.deiconify()
             config = {"analysis": "", "sync": False, "source": ""}
-            root.title("WIP Monitor v1.8 配置")
+            root.title("WIP Monitor v1.9 配置")
             root.geometry("550x350")
             root.attributes('-topmost', True)
             
@@ -143,7 +143,7 @@ def prompt_config():
     print("Tkinter not found. Using native Win32 dialogs...")
     
     use_default = win32_msg_yes_no(
-        "WIP Monitor v1.8 配置",
+        "WIP Monitor v1.9 配置",
         "是否使用預設分析路徑與自動複製母檔？\n\n"
         f"預設分析路徑：{default_analysis}\n"
         f"預設原始路徑：{default_source}"
@@ -158,7 +158,7 @@ def prompt_config():
     config["analysis"] = win32_select_directory("1. 請選擇 WIP Status 分析路徑 (讀取 Excel 進行分析的地方)")
     if not config["analysis"]: return None
     
-    config["sync"] = win32_msg_yes_no("WIP Monitor v1.8 配置", "2. 是否啟動「自動抓取資料」功能？\n(將定期從原始路徑複製最新檔案)")
+    config["sync"] = win32_msg_yes_no("WIP Monitor v1.9 配置", "2. 是否啟動「自動抓取資料」功能？\n(將定期從原始路徑複製最新檔案)")
     
     if config["sync"]:
         config["source"] = win32_select_directory("3. 請選擇 WIP Status 原始資料路徑 (來源 Server)")
