@@ -506,3 +506,167 @@ header {
   50% { opacity: 1; }
   100% { opacity: 0.5; }
 }
+
+/* ====================================================
+   Fast Order Filter & Urgency Styling
+   ==================================================== */
+
+/* Toggle Switch Styles */
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 22px;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.1);
+  transition: .3s;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: #94a3b8;
+  transition: .3s;
+}
+
+input:checked + .slider {
+  background-color: rgba(34, 211, 238, 0.2);
+  border-color: #22d3ee;
+}
+
+input:checked + .slider:before {
+  transform: translateX(22px);
+  background-color: #22d3ee;
+  box-shadow: 0 0 8px #22d3ee;
+}
+
+.slider.round {
+  border-radius: 34px;
+}
+
+.slider.round:before {
+  border-radius: 50%;
+}
+
+/* Fast Order Blink Animations */
+.customer-tag.fast-blink-A {
+  background-color: rgba(239, 68, 68, 0.25) !important;
+  border: 1px solid rgba(239, 68, 68, 0.8) !important;
+  color: #fca5a5 !important;
+  font-weight: bold;
+  animation: pulse-red 1.2s infinite ease-in-out;
+}
+.customer-tag.fast-blink-B {
+  background-color: rgba(249, 115, 22, 0.25) !important;
+  border: 1px solid rgba(249, 115, 22, 0.8) !important;
+  color: #fed7aa !important;
+  font-weight: bold;
+  animation: pulse-orange 1.4s infinite ease-in-out;
+}
+.customer-tag.fast-blink-C {
+  background-color: rgba(234, 179, 8, 0.2) !important;
+  border: 1px solid rgba(234, 179, 8, 0.7) !important;
+  color: #fef08a !important;
+  font-weight: bold;
+  animation: pulse-yellow 1.6s infinite ease-in-out;
+}
+.customer-tag.fast-blink-D {
+  background-color: rgba(168, 85, 247, 0.25) !important;
+  border: 1px solid rgba(168, 85, 247, 0.8) !important;
+  color: #e9d5ff !important;
+  font-weight: bold;
+  animation: pulse-purple 1.8s infinite ease-in-out;
+}
+
+@keyframes pulse-red {
+  0%, 100% { box-shadow: 0 0 2px rgba(239, 68, 68, 0.4); border-color: rgba(239, 68, 68, 0.8); }
+  50% { box-shadow: 0 0 12px rgba(239, 68, 68, 0.8); border-color: #ef4444; background-color: rgba(239, 68, 68, 0.45); }
+}
+@keyframes pulse-orange {
+  0%, 100% { box-shadow: 0 0 2px rgba(249, 115, 22, 0.4); border-color: rgba(249, 115, 22, 0.8); }
+  50% { box-shadow: 0 0 12px rgba(249, 115, 22, 0.8); border-color: #f97316; background-color: rgba(249, 115, 22, 0.45); }
+}
+@keyframes pulse-yellow {
+  0%, 100% { box-shadow: 0 0 2px rgba(234, 179, 8, 0.3); border-color: rgba(234, 179, 8, 0.7); }
+  50% { box-shadow: 0 0 10px rgba(234, 179, 8, 0.7); border-color: #eab308; background-color: rgba(234, 179, 8, 0.4); }
+}
+@keyframes pulse-purple {
+  0%, 100% { box-shadow: 0 0 2px rgba(168, 85, 247, 0.4); border-color: rgba(168, 85, 247, 0.8); }
+  50% { box-shadow: 0 0 12px rgba(168, 85, 247, 0.8); border-color: #a855f7; background-color: rgba(168, 85, 247, 0.45); }
+}
+
+/* Fast Order Run Card Tab Blinking */
+.run-card-tab.fast-tab-blink-A {
+  border-color: rgba(239, 68, 68, 0.6) !important;
+  animation: tab-pulse-red 1.5s infinite;
+}
+.run-card-tab.fast-tab-blink-B {
+  border-color: rgba(249, 115, 22, 0.6) !important;
+  animation: tab-pulse-orange 1.5s infinite;
+}
+.run-card-tab.fast-tab-blink-C {
+  border-color: rgba(234, 179, 8, 0.5) !important;
+  animation: tab-pulse-yellow 1.5s infinite;
+}
+.run-card-tab.fast-tab-blink-D {
+  border-color: rgba(168, 85, 247, 0.6) !important;
+  animation: tab-pulse-purple 1.5s infinite;
+}
+
+@keyframes tab-pulse-red {
+  0%, 100% { border-color: rgba(239, 68, 68, 0.6); box-shadow: none; }
+  50% { border-color: #ef4444; box-shadow: 0 0 6px rgba(239, 68, 68, 0.4); }
+}
+@keyframes tab-pulse-orange {
+  0%, 100% { border-color: rgba(249, 115, 22, 0.6); box-shadow: none; }
+  50% { border-color: #f97316; box-shadow: 0 0 6px rgba(249, 115, 22, 0.4); }
+}
+@keyframes tab-pulse-yellow {
+  0%, 100% { border-color: rgba(234, 179, 8, 0.5); box-shadow: none; }
+  50% { border-color: #eab308; box-shadow: 0 0 6px rgba(234, 179, 8, 0.3); }
+}
+@keyframes tab-pulse-purple {
+  0%, 100% { border-color: rgba(168, 85, 247, 0.6); box-shadow: none; }
+  50% { border-color: #a855f7; box-shadow: 0 0 6px rgba(168, 85, 247, 0.4); }
+}
+
+/* Fast Badge and Card Borders */
+.fast-badge {
+  display: inline-block;
+  font-size: 0.65rem;
+  background: rgba(255,255,255,0.15);
+  padding: 0.05rem 0.25rem;
+  border-radius: 3px;
+  margin-left: 0.4rem;
+  color: #fff;
+  font-weight: bold;
+}
+.fast-tab-blink-A .fast-badge { background: #ef4444; }
+.fast-tab-blink-B .fast-badge { background: #f97316; }
+.fast-tab-blink-C .fast-badge { background: #eab308; color: #000; }
+.fast-tab-blink-D .fast-badge { background: #a855f7; }
+
+.detail-row-card.fast-card-A { border-color: rgba(239, 68, 68, 0.6) !important; }
+.detail-row-card.fast-card-B { border-color: rgba(249, 115, 22, 0.6) !important; }
+.detail-row-card.fast-card-C { border-color: rgba(234, 179, 8, 0.5) !important; }
+.detail-row-card.fast-card-D { border-color: rgba(168, 85, 247, 0.6) !important; }
+

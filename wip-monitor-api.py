@@ -282,13 +282,46 @@ def analyze_latest_file():
                                     max_stay = 0.0
                                     max_rc = ''
                                 cust_category = str(c_df['客戶別'].iloc[0]).strip() if '客戶別' in c_df.columns else ""
+                                
+                                run_cards_detail = []
+                                for _, row in c_df.iterrows():
+                                    rc_code = str(row.get('run_card', ''))
+                                    rc_wpnl = int(pd.to_numeric(row.get('wpnl_qty', 0), errors='coerce')) if not pd.isna(row.get('wpnl_qty')) else 0
+                                    rc_stay = float(pd.to_numeric(row.get('停留時間', 0), errors='coerce')) if not pd.isna(row.get('停留時間')) else 0.0
+                                    
+                                    raw_fast = row.get('是否快單') if '是否快單' in c_df.columns else ''
+                                    fast_type = str(raw_fast).strip() if not pd.isna(raw_fast) else ""
+                                    fast_level = ""
+                                    if "A" in fast_type: fast_level = "A"
+                                    elif "B" in fast_type: fast_level = "B"
+                                    elif "C" in fast_type: fast_level = "C"
+                                    elif "D" in fast_type: fast_level = "D"
+                                    
+                                    run_cards_detail.append({
+                                        "run_card": rc_code,
+                                        "wpnl_qty": rc_wpnl,
+                                        "stay_time": rc_stay,
+                                        "fast_level": fast_level,
+                                        "fast_type": fast_type
+                                    })
+                                
+                                is_fast = any(rc["fast_level"] != "" for rc in run_cards_detail)
+                                highest_fast_level = ""
+                                if any(rc["fast_level"] == "A" for rc in run_cards_detail): highest_fast_level = "A"
+                                elif any(rc["fast_level"] == "B" for rc in run_cards_detail): highest_fast_level = "B"
+                                elif any(rc["fast_level"] == "C" for rc in run_cards_detail): highest_fast_level = "C"
+                                elif any(rc["fast_level"] == "D" for rc in run_cards_detail): highest_fast_level = "D"
+
                                 customer_stats.append({
                                     "eng_num": str(eng_num),
                                     "category": cust_category,
                                     "run_card_count": len(c_df),
                                     "wpnl_qty": int(wpnl_sum),
                                     "max_stay_time": max_stay,
-                                    "max_stay_run_card": max_rc
+                                    "max_stay_run_card": max_rc,
+                                    "is_fast": is_fast,
+                                    "highest_fast_level": highest_fast_level,
+                                    "run_cards_detail": run_cards_detail
                                 })
                             stations.append({
                                 "station_code": str(st_code),

@@ -21,6 +21,7 @@ function App() {
   const [selectedRunCard, setSelectedRunCard] = useState(null);
   const POLLING_INTERVAL = 60; // 60s (1 minute) for production
   const [countdown, setCountdown] = useState(POLLING_INTERVAL);
+  const [showOnlyFast, setShowOnlyFast] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -82,23 +83,99 @@ function App() {
     const lowerSearch = searchTerm ? searchTerm.toLowerCase() : '';
     
     return data.cities.map(city => {
-      const cityStats = city.stations.reduce((acc, station) => {
-        const validStats = (station.customer_stats || []).filter(c => {
+      // Map and filter stations
+      const filteredStations = city.stations.map(station => {
+        // Map and filter customer stats
+        const filteredCustomerStats = (station.customer_stats || []).map(c => {
+          // If showOnlyFast is true, filter the run cards
+          const rcDetail = c.run_cards_detail || [];
+          const matchedRc = showOnlyFast 
+            ? rcDetail.filter(rc => rc.fast_level !== '')
+            : rcDetail;
+            
+          if (matchedRc.length === 0) return null;
+          
+          // Calculate new totals for this customer
+          const runCardCount = matchedRc.length;
+          const wpnlQty = matchedRc.reduce((sum, rc) => sum + rc.wpnl_qty, 0);
+          
+          // Max stay time among these run cards
+          let maxStay = 0;
+          let maxStayRc = '';
+          matchedRc.forEach(rc => {
+            if (rc.stay_time > maxStay) {
+              maxStay = rc.stay_time;
+              maxStayRc = rc.run_card;
+            }
+          });
+          
+          // Determine highest fast level for this customer at this station
+          let highestLevel = '';
+          if (matchedRc.some(rc => rc.fast_level === 'A')) highestLevel = 'A';
+          else if (matchedRc.some(rc => rc.fast_level === 'B')) highestLevel = 'B';
+          else if (matchedRc.some(rc => rc.fast_level === 'C')) highestLevel = 'C';
+          else if (matchedRc.some(rc => rc.fast_level === 'D')) highestLevel = 'D';
+          
+          return {
+            ...c,
+            run_card_count: runCardCount,
+            wpnl_qty: wpnlQty,
+            max_stay_time: maxStay,
+            max_stay_run_card: maxStayRc,
+            highest_fast_level: highestLevel,
+            run_cards_detail: matchedRc
+          };
+        }).filter(Boolean);
+        
+        // Filter customer stats by search term
+        const searchFilteredStats = filteredCustomerStats.filter(c => {
           const lowerSearchTerm = lowerSearch.toLowerCase();
           const matchEng = c.eng_num.toLowerCase().includes(lowerSearchTerm);
           const matchCat = c.category && c.category.toLowerCase().includes(lowerSearchTerm);
           return !lowerSearch || matchEng || matchCat;
         });
-        acc.customers += validStats.length;
-        acc.wip += validStats.reduce((sum, c) => sum + c.run_card_count, 0);
-        acc.wpnl += validStats.reduce((sum, c) => sum + c.wpnl_qty, 0);
-        acc.stations += validStats.length > 0 ? 1 : 0;
+        
+        if (searchFilteredStats.length === 0) return null;
+        
+        return {
+          ...station,
+          customers: searchFilteredStats.map(c => c.eng_num),
+          customer_stats: searchFilteredStats,
+          count: searchFilteredStats.reduce((sum, c) => sum + c.run_card_count, 0)
+        };
+      }).filter(Boolean);
+      
+      // Calculate city stats based on filteredStations
+      const cityStats = filteredStations.reduce((acc, station) => {
+        acc.customers += station.customer_stats.length;
+        acc.wip += station.count;
+        acc.wpnl += station.customer_stats.reduce((sum, c) => sum + c.wpnl_qty, 0);
+        acc.stations += 1;
         return acc;
       }, { customers: 0, wip: 0, wpnl: 0, stations: 0 });
+      
+      return {
+        ...city,
+        stations: filteredStations,
+        cityStats
+      };
+    }).filter(city => city.stations.length > 0);
+  }, [data, searchTerm, showOnlyFast]);
 
-      return { ...city, cityStats };
-    }).filter(city => !lowerSearch || city.cityStats.customers > 0);
-  }, [data, searchTerm]);
+  const currentSelectedCity = useMemo(() => {
+    if (!selectedCity) return null;
+    return filteredCities.find(c => c.city_code === selectedCity.city_code) || null;
+  }, [filteredCities, selectedCity]);
+
+  const getFastLevel = (typeStr) => {
+    if (!typeStr) return '';
+    const str = String(typeStr);
+    if (str.includes('A')) return 'A';
+    if (str.includes('B')) return 'B';
+    if (str.includes('C')) return 'C';
+    if (str.includes('D')) return 'D';
+    return '';
+  };
 
   const createClusterIcon = (count, code, isMainline) => {
     return L.divIcon({
@@ -137,6 +214,30 @@ function App() {
           <p className="file-name-display" style={{fontSize: '0.75rem', color: '#94a3b8', marginTop: '0.25rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}}>
             📄 {data.file_name}
           </p>
+
+          {/* Fast Order Filter Toggle */}
+          <div className="filter-section" style={{
+            marginTop: '1rem',
+            padding: '0.6rem 0.8rem',
+            background: 'rgba(255, 255, 255, 0.03)',
+            borderRadius: '8px',
+            border: '1px solid rgba(255, 255, 255, 0.05)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}>
+            <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: '#22d3ee', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+              ⚡ 只顯示急單/快單
+            </span>
+            <label className="switch">
+              <input 
+                type="checkbox" 
+                checked={showOnlyFast} 
+                onChange={(e) => setShowOnlyFast(e.target.checked)} 
+              />
+              <span className="slider round"></span>
+            </label>
+          </div>
         </header>
 
         <div className="city-list">
@@ -144,7 +245,7 @@ function App() {
             filteredCities.map(city => (
               <div 
                 key={city.city_code} 
-                className={`city-item ${selectedCity?.city_code === city.city_code ? 'active' : ''}`}
+                className={`city-item ${currentSelectedCity?.city_code === city.city_code ? 'active' : ''}`}
                 onClick={() => setSelectedCity(city)}
               >
                 <div className="city-info">
@@ -227,15 +328,15 @@ function App() {
               </Popup>
             </Marker>
           ))}
-          <MapController selectedCity={selectedCity} />
+          <MapController selectedCity={currentSelectedCity} />
         </MapContainer>
         
-        {selectedCity && (
+        {currentSelectedCity && (
           <div className="detail-overlay glass">
             <button className="close-btn" onClick={() => setSelectedCity(null)}>&times;</button>
-            <h2 translate="no">{selectedCity.city_code} WIP Details</h2>
+            <h2 translate="no">{currentSelectedCity.city_code} WIP Details</h2>
             <div className="stations-grid">
-              {selectedCity.stations.map(s => {
+              {currentSelectedCity.stations.map(s => {
                 // Backward compatibility if customer_stats is not ready yet
                 const stats = s.customer_stats || s.customers.map(c => ({ eng_num: c, run_card_count: 1, wpnl_qty: 0, max_stay_time: 0, max_stay_run_card: '' }));
                 const filteredStats = stats.filter(c => {
@@ -275,9 +376,9 @@ function App() {
                       {filteredStats.map(c => (
                         <span 
                           key={c.eng_num} 
-                          className={`customer-tag ${searchTerm ? 'highlight' : ''}`} 
+                          className={`customer-tag ${searchTerm ? 'highlight' : ''} ${c.highest_fast_level ? `fast-blink-${c.highest_fast_level}` : ''}`} 
                           translate="no"
-                          onClick={() => handleCustomerClick(c.eng_num, selectedCity.city_code)}
+                          onClick={() => handleCustomerClick(c.eng_num, currentSelectedCity.city_code)}
                         >
                           {c.eng_num}
                         </span>
@@ -308,13 +409,15 @@ function App() {
               <div className="tabs-container">
                 {customerDetails.map((row, idx) => {
                   const identifier = row.run_card || row.station_code || `紀錄 ${idx + 1}`;
+                  const fastLevel = getFastLevel(row['是否快單']);
                   return (
                     <button 
                       key={idx}
-                      className={`run-card-tab ${selectedRunCard === identifier ? 'active' : ''}`}
+                      className={`run-card-tab ${selectedRunCard === identifier ? 'active' : ''} ${fastLevel ? `fast-tab-blink-${fastLevel}` : ''}`}
                       onClick={() => setSelectedRunCard(identifier)}
                     >
                       {identifier}
+                      {fastLevel && <span className="fast-badge">{fastLevel}</span>}
                     </button>
                   );
                 })}
@@ -329,11 +432,16 @@ function App() {
                 // Only render the table for the selected run_card
                 if (identifier !== selectedRunCard) return null;
 
+                const fastLevel = getFastLevel(row['是否快單']);
+
                 return (
-                  <div key={index} className="detail-row-card">
+                  <div key={index} className={`detail-row-card ${fastLevel ? `fast-card-${fastLevel}` : ''}`}>
                     <div className="detail-row-card-header">
                       <span>{row['eng_num'] || selectedCustomer}</span>
-                      <span style={{fontSize: '0.8rem', opacity: 0.8}}>{identifier}</span>
+                      <span style={{fontSize: '0.8rem', opacity: 0.8}}>
+                        {fastLevel && <span style={{marginRight: '0.5rem', background: 'rgba(255,255,255,0.2)', padding: '0.1rem 0.4rem', borderRadius: '4px'}}>快單 {fastLevel}</span>}
+                        {identifier}
+                      </span>
                     </div>
                     <table className="detail-table">
                       <tbody>
