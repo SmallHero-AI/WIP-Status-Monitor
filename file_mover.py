@@ -84,15 +84,7 @@ def move_files():
                 except Exception as e:
                     log(f"❌ 搬移檔案 {file} 時發生錯誤: {e}")
                     
-        # 搬移完成後，由下而上清理空資料夾 (保留來源根目錄)
-        for root, dirs, files in os.walk(SOURCE_DIR, topdown=False):
-            if root == SOURCE_DIR:
-                continue
-            try:
-                if not os.listdir(root):  # 如果資料夾已空，就刪除它
-                    os.rmdir(root)
-            except Exception:
-                pass
+
                 
         if total_files == 0:
             log("ℹ️ 來源路徑目前沒有需要搬移的新檔案或資料夾。")
