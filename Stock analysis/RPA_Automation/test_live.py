@@ -12,6 +12,7 @@ import win32gui, win32con, win32api
 import time, sys, os, re, glob, ctypes
 import pandas as pd
 from datetime import datetime
+import win32com.client
 
 # Redirect output to file
 sys.stdout = open(r"E:\G-AI-1\Stock analysis\RPA_Automation\test_live.log", "w", encoding="utf-8")
@@ -208,67 +209,93 @@ pyautogui.screenshot().save(shot2_path)
 log(f"📸 匯出後截圖：{shot2_path}")
 log("✅ Step2 完成")
 
-# ── Step3：找 Excel ──
-log("\n=== Step3：搜尋 Excel 暫存檔 ===")
-raw_path = find_latest_excel(before_ts)
+# ── Step3 & Step4：使用 Excel COM 自動化清洗與另存為 CSV ──
+log("\n=== Step3 & Step4：Excel COM 自動化取代與存為 CSV ===")
 
-if not raw_path:
-    log("❌ 找不到新的 Excel 檔案")
-    log("   請查看兩張截圖確認：")
-    log(f"   選單截圖: {shot_path}")
-    log(f"   匯出後:   {shot2_path}")
-    log("")
-    log("   另請手動確認：台新贏家快手匯出 Excel 後存在哪個目錄？")
-    log("   可在軟體內手動按一次「匯出至 Excel」，觀察存檔路徑")
-else:
-    log(f"✅ 找到: {raw_path}")
-
-    def clean_val(v):
-        if v is None: return None
-        try:
-            if pd.isna(v): return None
-        except: pass
-        s = re.sub(r'[▲▼↑↓△▽→←↑↓]', '', str(v).strip()).replace(',','')
-        try: return float(s)
-        except: return None
-
+import pygetwindow as gw
+excel_wins = [w for w in gw.getAllWindows() if 'Excel' in w.title or '.xlsx' in w.title or '.txt' in w.title]
+if excel_wins:
     try:
-        if raw_path.lower().endswith('.txt'):
-            df = pd.read_csv(raw_path, sep='\t', encoding='cp950')
-        else:
-            df = pd.read_excel(raw_path, engine='openpyxl')
-        log(f"讀取：{len(df)} 筆 x {len(df.columns)} 欄")
+        excel_wins[0].activate()
+        time.sleep(1.0)
     except Exception as e:
-        log(f"❌ 讀取失敗: {e}")
+        log(f"激活 Excel 視窗失敗: {e}")
+
+# 獲取 Excel COM 物件
+excel_app = None
+for i in range(15):
+    try:
+        excel_app = win32com.client.GetActiveObject("Excel.Application")
+        if excel_app and excel_app.Workbooks.Count > 0:
+            break
+    except Exception:
+        pass
+    time.sleep(0.5)
+
+if not excel_app:
+    log("❌ 無法取得作用中的 Excel 應用程式實例 (COM)")
+    sys.exit(1)
+
+try:
+    excel_app.DisplayAlerts = False
+    
+    # 尋找對應的活頁簿 (2330)
+    wb = None
+    for w in excel_app.Workbooks:
+        if "2330" in w.Name:
+            wb = w
+            break
+    if not wb:
+        log("⚠️ 找不到名稱含有 2330 的活頁簿，使用 ActiveWorkbook")
+        wb = excel_app.ActiveWorkbook
+
+    if not wb:
+        log("❌ 無法取得 Excel 活頁簿！")
         sys.exit(1)
 
-    for col in df.columns:
-        if df[col].dtype == object:
-            cs = df[col].apply(clean_val)
-            if cs.notna().mean() > 0.3:
-                df[col] = cs
-                log(f"清洗：{col}")
+    log(f"📄 已取得活頁簿：{wb.Name}")
+    ws = wb.ActiveSheet
 
-    out_dir  = r"E:\G-AI-1\Stock analysis\Stock original\auto_export"
+    # 執行取代
+    log("🧹 在 Excel 執行取代：將 ↑ 取代為空白")
+    ws.Cells.Replace(What="↑", Replacement="", LookAt=2, SearchOrder=1, MatchCase=False)
+    log("🧹 在 Excel 執行取代：將 ↓ 取代為空白")
+    ws.Cells.Replace(What="↓", Replacement="", LookAt=2, SearchOrder=1, MatchCase=False)
+
+    # 儲存為 CSV
+    out_dir = r"E:\G-AI-1\Stock analysis\Stock original\auto_export"
     os.makedirs(out_dir, exist_ok=True)
-    out_name = f"2330_台積電_{datetime.now().strftime('%Y%m%d')}.xlsx"
-    out_path = os.path.join(out_dir, out_name)
-    df.to_excel(out_path, index=False, engine='openpyxl')
-    log(f"✅ 儲存：{out_path}")
+    csv_name = f"2330_台積電_{datetime.now().strftime('%Y%m%d')}.csv"
+    csv_path = os.path.join(out_dir, csv_name)
 
-    # 關閉 Excel
-    import pygetwindow as gw
-    excel_wins = [w for w in gw.getAllWindows() if 'Excel' in w.title or '.xlsx' in w.title]
-    if excel_wins:
+    if os.path.exists(csv_path):
         try:
-            excel_wins[0].activate()
-            time.sleep(0.3)
-        except:
+            os.remove(csv_path)
+        except Exception:
             pass
-    pyautogui.hotkey('alt', 'f4')
-    time.sleep(0.7)
-    pyautogui.press('n')
-    time.sleep(1.0)
-    log("✅ Excel 已關閉")
+
+    log(f"💾 另存為 CSV 格式：{csv_path}")
+    wb.SaveAs(Filename=csv_path, FileFormat=6)
+
+    # 關閉活頁簿
+    wb.Close(SaveChanges=False)
+    log("✅ 已成功儲存並關閉活頁簿")
+
+    # 若無其他活頁簿，關閉整個 Excel 應用程式
+    if excel_app.Workbooks.Count == 0:
+        excel_app.Quit()
+        log("✅ Excel 應用程式已關閉")
+
+except Exception as e:
+    log(f"❌ Excel COM 處理失敗：{e}")
+    import traceback
+    traceback.print_exc()
+    sys.exit(1)
+finally:
+    try:
+        if excel_app:
+            excel_app.DisplayAlerts = True
+    except:
+        pass
 
 log("\n=== 完成 ===")

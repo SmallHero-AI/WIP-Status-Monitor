@@ -20,6 +20,10 @@ import re
 import glob
 import pandas as pd
 from datetime import datetime
+import win32com.client
+import json
+import shutil
+
 
 # ======================== PyAutoGUI 安全設定 ========================
 pyautogui.FAILSAFE = True
@@ -34,9 +38,29 @@ COORD = {
     "export_menu"      : (550, 475),   # Step2 匯出選單
 }
 
-OUTPUT_FOLDER = r"E:\G-AI-1\Stock analysis\Stock original\auto_export"
+CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "coords_config.json")
+
+# 載入自訂座標設定 (若有)
+if os.path.exists(CONFIG_FILE):
+    try:
+        with open(CONFIG_FILE, 'r', encoding='utf-8') as f:
+            saved_coords = json.load(f)
+            for k, v in saved_coords.items():
+                if k in COORD:
+                    COORD[k] = tuple(v)
+    except Exception:
+        pass
+
+
+# 自動解析相對路徑，讓資料夾隨意複製到任何硬碟皆可執行
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+STOCK_ANALYSIS_DIR = os.path.dirname(SCRIPT_DIR)
+
+OUTPUT_FOLDER = os.path.join(STOCK_ANALYSIS_DIR, "Stock original", "auto_export")
 DATE_TODAY    = datetime.now().strftime("%Y%m%d")
 
+
+# 預設備用名單
 STOCK_LIST = [
     {"code": "2330", "name": "台積電"},
     {"code": "2360", "name": "致茂"},
@@ -51,6 +75,23 @@ STOCK_LIST = [
     {"code": "3443", "name": "創意"},
     {"code": "6261", "name": "久元"},
 ]
+
+EXCEL_STOCK_LIST_PATH = os.path.join(STOCK_ANALYSIS_DIR, "Stock original", "有價證券代號與名稱.xlsx")
+
+if os.path.exists(EXCEL_STOCK_LIST_PATH):
+    try:
+        df_list = pd.read_excel(EXCEL_STOCK_LIST_PATH, header=0)
+        loaded_stocks = []
+        for idx, row in df_list.iterrows():
+            code = str(row.iloc[0]).strip()
+            name = str(row.iloc[1]).strip()
+            if code and name and code.isdigit():
+                loaded_stocks.append({"code": code, "name": name})
+        if loaded_stocks:
+            STOCK_LIST = loaded_stocks
+    except Exception as e:
+        pass
+
 
 # ======================== 時間參數 ========================
 WAIT = {
@@ -75,10 +116,12 @@ def log(step, msg):
     line = f"  [{ts}] {step} {msg}"
     print(line, flush=True)
     try:
-        with open(r"E:\G-AI-1\Stock analysis\RPA_Automation\stock_exporter.log", "a", encoding="utf-8") as f:
+        log_path = os.path.join(SCRIPT_DIR, "stock_exporter.log")
+        with open(log_path, "a", encoding="utf-8") as f:
             f.write(line + "\n")
     except:
         pass
+
 
 
 def clean_value(value):
@@ -368,83 +411,101 @@ def step2_export_excel():
     return before
 
 
-def step3_switch_and_clean(before_ts, code, name):
+def step3_switch_and_clean_com(before_ts, code, name):
     """
-    Step3：切換至 Excel 視窗 → 搜尋暫存檔 → 清洗箭頭符號
+    Step3 & Step4：使用 Excel COM 自動化進行欄位清洗（將 ↑ 與 ↓ 取代為空白）並另存為 CSV，最後關閉。
     """
-    log('📌 STEP3', "切換 Excel + 執行清洗")
+    log('📌 STEP3 & 4', "Excel COM 自動化：清洗箭頭並另存 CSV")
 
-    # 找到並切換至 Excel
-    excel_win = find_excel_window(timeout=8.0)
+    # 1. 確保 Excel 視窗已出現
+    excel_win = find_excel_window(timeout=10.0)
+    if not excel_win:
+        log('❌', "找不到 Excel 視窗！")
+        return False
+
+    # 確保 Excel 視窗在前景，給予穩定時間
     activate_win(excel_win, "Excel")
+    time.sleep(1.0)
 
-    # 搜尋匯出的暫存 Excel
-    raw_path = find_latest_excel_after(before_ts)
-    if not raw_path:
-        log('❌', "找不到匯出的 Excel 暫存檔！請確認軟體匯出路徑")
-        return None, None
-
-    log('📄', f"找到暫存檔：{os.path.basename(raw_path)}")
-
-    # 讀取並清洗
-    try:
-        if raw_path.lower().endswith('.txt'):
-            df = pd.read_csv(raw_path, sep='\t', encoding='cp950')
-        else:
-            df = pd.read_excel(raw_path, sheet_name=0, header=0, engine='openpyxl')
-        log('📊', f"讀取完成：{len(df)} 筆 × {len(df.columns)} 欄")
-    except Exception as e:
-        log('❌', f"讀取失敗：{e}")
-        return None, raw_path
-
-    cleaned_count = 0
-    for col in df.columns:
-        if df[col].dtype == object:
-            cs = df[col].apply(clean_value)
-            if cs.notna().mean() > 0.3:
-                df[col] = cs
-                cleaned_count += 1
-
-    log('✅', f"清洗完成，處理 {cleaned_count} 個欄位（已轉 float）")
-    return df, raw_path
-
-
-def step4_save_and_close(df, raw_path, code, name):
-    """
-    Step4：儲存清洗後的 Excel → 關閉 Excel（不儲存原始暫存檔）
-    """
-    log('📌 STEP4', "儲存 + 關閉 Excel")
-
-    out_path = None
-
-    # ── 儲存 ──
-    if df is not None:
-        filename  = f"{code}_{name}_{DATE_TODAY}.xlsx"
-        out_path  = os.path.join(OUTPUT_FOLDER, filename)
+    # 2. 獲取 Excel COM 物件
+    excel_app = None
+    for i in range(15):
         try:
-            df.to_excel(out_path, index=False, engine='openpyxl')
-            log('✅', f"儲存成功：{filename}")
-        except Exception as e:
-            log('❌', f"儲存失敗：{e}")
-            out_path = None
+            excel_app = win32com.client.GetActiveObject("Excel.Application")
+            if excel_app and excel_app.Workbooks.Count > 0:
+                break
+        except Exception:
+            pass
+        time.sleep(0.5)
 
-    # ── 關閉 Excel ──
-    excel_win = find_excel_window(timeout=2.0)
-    if excel_win:
-        activate_win(excel_win, "Excel")
-        time.sleep(0.2)
+    if not excel_app:
+        log('❌', "無法取得作用中的 Excel 應用程式實例 (COM)")
+        return False
 
-    log('🖱 ', "送出 Alt+F4 關閉 Excel")
-    pyautogui.hotkey('alt', 'f4')
-    time.sleep(0.8)
+    try:
+        excel_app.DisplayAlerts = False
 
-    # 若出現「是否儲存？」→ 按 N 不儲存（已另存至 output_folder）
-    log('⌨️ ', "按 N 不儲存原始暫存檔")
-    pyautogui.press('n')
-    time.sleep(WAIT["excel_close"])
+        # 3. 尋找對應的活頁簿
+        wb = None
+        for w in excel_app.Workbooks:
+            if code in w.Name:
+                wb = w
+                break
+        if not wb:
+            log('⚠️ ', f"找不到檔名含 {code} 的活頁簿，將使用目前作用中的活頁簿")
+            wb = excel_app.ActiveWorkbook
 
-    log('✅', "Step4 完成")
-    return out_path
+        if not wb:
+            log('❌', "無法取得作用中的 Excel 活頁簿！")
+            return False
+
+        log('📄', f"已取得活頁簿：{wb.Name}")
+        ws = wb.ActiveSheet
+
+        # 4. 執行取代：將 ↑ 與 ↓ 取代為空白
+        log('🧹', "在 Excel 執行取代：將 ↑ 取代為空白")
+        ws.Cells.Replace(What="↑", Replacement="", LookAt=2, SearchOrder=1, MatchCase=False)
+        log('🧹', "在 Excel 執行取代：將 ↓ 取代為空白")
+        ws.Cells.Replace(What="↓", Replacement="", LookAt=2, SearchOrder=1, MatchCase=False)
+
+        # 5. 儲存為 CSV
+        os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+        csv_name = f"{code}_{name}_{DATE_TODAY}.csv"
+        csv_path = os.path.join(OUTPUT_FOLDER, csv_name)
+
+        # 如果已經存在，先刪除以避免覆蓋提示
+        if os.path.exists(csv_path):
+            try:
+                os.remove(csv_path)
+            except Exception:
+                pass
+
+        log('💾', f"另存為 CSV 格式：{csv_path}")
+        # FileFormat=6 代表 xlCSV
+        wb.SaveAs(Filename=csv_path, FileFormat=6)
+
+        # 6. 關閉活頁簿
+        wb.Close(SaveChanges=False)
+        log('✅', f"已成功儲存並關閉活頁簿")
+
+        # 7. 若無其他活頁簿，關閉整個 Excel 應用程式
+        if excel_app.Workbooks.Count == 0:
+            excel_app.Quit()
+            log('✅', "Excel 應用程式已關閉")
+
+        return True
+    except Exception as e:
+        log('❌', f"Excel COM 處理失敗：{e}")
+        import traceback
+        traceback.print_exc()
+        return False
+    finally:
+        try:
+            if excel_app:
+                excel_app.DisplayAlerts = True
+        except Exception:
+            pass
+
 
 
 def step5_back_to_winner():
@@ -464,6 +525,132 @@ def step5_back_to_winner():
         time.sleep(WAIT["window_switch"])
 
     log('✅', "Step5 完成，準備下一支")
+
+
+def calibrate_coordinates():
+    """
+    即時顯示滑鼠座標，並引導使用者輸入新的座標設定。
+    """
+    print("\n" + "=" * 55)
+    print("  滑鼠座標測量與設定工具")
+    print("=" * 55)
+    print("  1. 程式會開始即時顯示滑鼠所在的 X, Y 座標。")
+    print("  2. 請將滑鼠移動到目標位置後，記錄該座標值。")
+    print("  3. 按 Ctrl+C 可以結束即時顯示，並開始設定新座標。")
+    print("-" * 55)
+    print("  需要設定的目標有：")
+    print("    - [搜尋框] (預設約 155, 125)")
+    print("    - [K線圖右鍵] (預設約 500, 200)")
+    print("    - [匯出選單] (預設約 550, 475)")
+    print("-" * 55)
+    
+    input("👉 按 [Enter] 鍵開始顯示座標... (結束請按 Ctrl+C)")
+    
+    try:
+        while True:
+            x, y = pyautogui.position()
+            print(f"\r  目前滑鼠座標：X={x:4d}, Y={y:4d}  (結束請按 Ctrl+C)", end="", flush=True)
+            time.sleep(0.1)
+    except KeyboardInterrupt:
+        print("\n\n  [已結束顯示] 開始座標輸入流程...")
+
+    def prompt_coord(label, current_val):
+        cx, cy = current_val
+        print(f"\n⚙️  設定 [{label}] 座標:")
+        try:
+            val_x = input(f"   X 座標 (目前為 {cx}，按 Enter 保持原樣): ").strip()
+            x = int(val_x) if val_x else cx
+        except ValueError:
+            print("   ⚠️ 輸入無效，保持原值")
+            x = cx
+
+        try:
+            val_y = input(f"   Y 座標 (目前為 {cy}，按 Enter 保持原樣): ").strip()
+            y = int(val_y) if val_y else cy
+        except ValueError:
+            print("   ⚠️ 輸入無效，保持原值")
+            y = cy
+        
+        return (x, y)
+
+    COORD["stock_search"] = prompt_coord("搜尋框 (Step1)", COORD["stock_search"])
+    COORD["kline_right_click"] = prompt_coord("K線圖右鍵 (Step2)", COORD["kline_right_click"])
+    COORD["export_menu"] = prompt_coord("匯出選單 (Step2)", COORD["export_menu"])
+
+    try:
+        with open(CONFIG_FILE, 'w', encoding='utf-8') as f:
+            json.dump(COORD, f, indent=4)
+        print(f"\n✅ 座標設定已成功存入設定檔：{CONFIG_FILE}")
+    except Exception as e:
+        print(f"\n❌ 儲存座標設定檔失敗: {e}")
+
+    print("\n目前套用座標為：")
+    for k, v in COORD.items():
+        print(f"  {k:18s}: {v}")
+    print("=" * 55 + "\n")
+    input("👉 按 [Enter] 鍵繼續執行 RPA 匯出程式...")
+
+
+def update_stock_database(success_list):
+    """
+    將匯出成功的 CSV 轉為 Excel，移入 Stock original，並將舊的 Excel 移到備份資料夾。
+    """
+    stock_original_dir = os.path.join(STOCK_ANALYSIS_DIR, "Stock original")
+    log('🗃️', "開始進行資料庫更新作業...")
+
+    for item in success_list:
+        parts = item.split()
+        if len(parts) < 2:
+            continue
+        code, name = parts[0], parts[1]
+        
+        csv_name = f"{code}_{name}_{DATE_TODAY}.csv"
+        csv_path = os.path.join(OUTPUT_FOLDER, csv_name)
+        
+        if not os.path.exists(csv_path):
+            log('⚠️ ', f"找不到 CSV 檔案：{csv_path}，跳過")
+            continue
+            
+        try:
+            # 讀取今日 CSV
+            df = pd.read_csv(csv_path, encoding='cp950')
+            
+            # 設定新 Excel 路徑
+            new_xlsx_name = f"{code}_{name}_EOM_{DATE_TODAY}.xlsx"
+            new_xlsx_path = os.path.join(stock_original_dir, new_xlsx_name)
+            
+            # 搜尋 Stock original 中的舊 Excel
+            old_pattern = os.path.join(stock_original_dir, f"{code}_{name}_EOM_*.xlsx")
+            old_files = glob.glob(old_pattern)
+            
+            # 備份舊檔案
+            for old_file in old_files:
+                if os.path.basename(old_file) == new_xlsx_name:
+                    continue
+                
+                date_match = re.search(r'_EOM_(\d{8})\.xlsx', os.path.basename(old_file))
+                old_date = date_match.group(1) if date_match else "old_files"
+                
+                backup_dir = os.path.join(stock_original_dir, old_date)
+                os.makedirs(backup_dir, exist_ok=True)
+                
+                backup_path = os.path.join(backup_dir, os.path.basename(old_file))
+                log('📦', f"正在備份舊檔案：{os.path.basename(old_file)} -> {old_date}/")
+                try:
+                    if os.path.exists(backup_path):
+                         os.remove(backup_path)
+                    shutil.move(old_file, backup_path)
+                except Exception as ex:
+                    log('⚠️ ', f"備份失敗：{ex}")
+            
+            # 將今日資料轉存為 Excel
+            log('💾', f"正在轉換並寫入 Excel：{new_xlsx_name}")
+            df.to_excel(new_xlsx_path, index=False, engine='openpyxl')
+            log('✅', f"順利更新 {code} {name} 資料庫")
+            
+        except Exception as e:
+            log('❌', f"更新個股 {code} {name} 時出錯：{e}")
+
 
 
 # ================================================================
@@ -487,11 +674,44 @@ def main():
     switch_to_default_desktop()
     # 清空上次的 log
     try:
-        if os.path.exists(r"E:\G-AI-1\Stock analysis\RPA_Automation\stock_exporter.log"):
-            os.remove(r"E:\G-AI-1\Stock analysis\RPA_Automation\stock_exporter.log")
+        log_path = os.path.join(SCRIPT_DIR, "stock_exporter.log")
+        if os.path.exists(log_path):
+            os.remove(log_path)
     except:
         pass
+
+    # 載入與詢問更新座標
     print("=" * 62, flush=True)
+    print("  座標校準確認", flush=True)
+    print("=" * 62, flush=True)
+    print("  目前套用座標：")
+    for k, v in COORD.items():
+        print(f"    {k:18s}: {v}", flush=True)
+    print("-" * 62, flush=True)
+    
+    ans = input("❓ 是否需要更新/校準滑鼠座標設定？(y/N) [預設為 N]: ").strip().lower()
+    if ans == 'y':
+        calibrate_coordinates()
+
+    # 詢問起始個股代號
+    print("-" * 62, flush=True)
+    start_code = input("❓ 請輸入起始個股代號 (按 Enter 則從第一筆開始): ").strip()
+    
+    global STOCK_LIST
+    if start_code:
+        found_idx = -1
+        for idx, stock in enumerate(STOCK_LIST):
+            if stock["code"] == start_code:
+                found_idx = idx
+                break
+        
+        if found_idx != -1:
+            STOCK_LIST = STOCK_LIST[found_idx:]
+            print(f"✅ 設定成功！將從第 {found_idx+1} 筆個股 {start_code} 開始往後執行。", flush=True)
+        else:
+            print(f"⚠️ 找不到個股代號 {start_code}，將依預設從第一筆開始執行。", flush=True)
+
+    print("\n" + "=" * 62, flush=True)
     print("  台新贏家快手 V5.1.1  RPA 精確座標版 v2", flush=True)
     print("=" * 62, flush=True)
     print(f"  座標：搜尋框{COORD['stock_search']} / 右鍵{COORD['kline_right_click']} / 選單{COORD['export_menu']}", flush=True)
@@ -499,6 +719,7 @@ def main():
     print(f"  日期：{DATE_TODAY}", flush=True)
     print(f"  個股：{len(STOCK_LIST)} 支", flush=True)
     print(flush=True)
+
 
     os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
@@ -533,10 +754,9 @@ def main():
         try:
             step1_input_stock(code, name)
             before_ts = step2_export_excel()
-            df, raw_path = step3_switch_and_clean(before_ts, code, name)
-            out_path = step4_save_and_close(df, raw_path, code, name)
+            ok = step3_switch_and_clean_com(before_ts, code, name)
 
-            if out_path:
+            if ok:
                 success.append(f"{code} {name}")
             else:
                 failed.append(f"{code} {name}")
@@ -574,6 +794,17 @@ def main():
         print(f"  ❌ {f}（請手動補匯）", flush=True)
     print(f"  📁 {OUTPUT_FOLDER}", flush=True)
     print(f"{'='*62}", flush=True)
+
+    # ── Excel 資料庫自動更新與舊檔備份 ──
+    if len(success) > 0:
+        print(f"\n{'='*62}", flush=True)
+        print("  資料庫自動更新 (CSV 轉存 Excel 並備份舊資料)", flush=True)
+        print("=" * 62, flush=True)
+        ans = input("❓ 是否將今日匯出的 CSV 檔案轉換為 Excel 並更新至 Stock original 目錄？(Y/n) [預設為 Y]: ").strip().lower()
+        if ans != 'n':
+            update_stock_database(success)
+        print("=" * 62, flush=True)
+
 
 
 if __name__ == "__main__":

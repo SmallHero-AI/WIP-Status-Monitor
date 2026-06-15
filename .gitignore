@@ -31,6 +31,7 @@ E:/@WIP交通觀測/WIP Status/
 *.doc
 *.docx
 *.pdf
+*.csv
 
 # Logs & temporary files
 *.log
@@ -39,3 +40,13 @@ scratch/
 temp_official_form.docx
 cols.json
 temp_*
+temp/
+
+# Archives
+*.rar
+*.zip
+
+# Stock raw data
+Stock analysis/data/
+Stock analysis/Stock original/auto_export/
+
