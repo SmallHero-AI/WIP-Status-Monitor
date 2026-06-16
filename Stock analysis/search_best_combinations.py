@@ -244,6 +244,7 @@ def main():
         f_ma_bull = (ma5 > ma20) & (ma20 > ma60)
         f_above_ma20 = closes > ma20
         f_above_ma60 = closes > ma60
+        f_above_ma120 = closes > ma120
 
         # 賣出基本訊號
         f_kd_dead = (k < d) & (prev_k >= prev_d)
@@ -254,37 +255,42 @@ def main():
         f_bb_overbought = (closes > bb_upper) & (bb_upper > 0)
         f_below_s1 = (closes < s1) & (s1 > 0)
 
-        # 4. 定義進場交叉組合策略 (16 種)
+        # 4. 定義進場交叉組合策略 (20 種高勝率組合)
         entry_strategies = [
-            ("均線多頭+MACD增長", f_ma_bull & f_macd_grow),
-            ("站上MA20+MACD紅柱", f_above_ma20 & f_macd_positive),
-            ("EOM強勢+站上MA60", f_eom_bullish & f_above_ma60),
-            ("RSI多頭+MACD增長", f_rsi_bull & f_macd_grow),
-            ("突破樞軸與第一阻力", f_above_pivot & f_break_r1),
-            ("站上MA20+均線多頭", f_above_ma20 & f_ma_bull),
-            ("KD金叉+KD超賣", f_kd_gold & f_kd_oversold),
-            ("RSI超賣+KD金叉", f_rsi_oversold & f_kd_gold),
-            ("BIAS超賣+KD金叉", f_bias_oversold & f_kd_gold),
-            ("CCI超賣+RSI超賣", f_cci_oversold & f_rsi_oversold),
-            ("布林下軌超跌+KD金叉", f_bb_oversold & f_kd_gold),
-            ("MFI超賣+BIAS超賣", f_mfi_oversold & f_bias_oversold),
-            ("CCI超賣+KD金叉", f_cci_oversold & f_kd_gold),
-            ("MFI超賣+KD金叉", f_mfi_oversold & f_kd_gold),
-            ("突破阻力(R1)+MACD增長", f_break_r1 & f_macd_grow),
-            ("突破阻力(R1)+RSI多頭", f_break_r1 & f_rsi_bull)
+            ("強勢均線多頭+KD金叉", f_ma_bull & f_kd_gold & f_above_ma20),
+            ("中長期多頭+RSI低檔轉強", f_above_ma60 & f_above_ma120 & (rsi < 45) & f_macd_grow),
+            ("雙重均線突破+MACD翻紅", f_above_ma20 & f_above_ma60 & f_macd_positive & f_macd_grow),
+            ("EOM動能突破+均線多頭", f_eom_bullish & f_ma_bull & f_above_ma20),
+            ("極度超跌共振 (BIAS+RSI+MFI)", f_bias_oversold & f_rsi_oversold & f_mfi_oversold),
+            ("布林通道下軌+KD低檔金叉", f_bb_oversold & f_kd_gold),
+            ("CCI超賣+MFI超賣+KD金叉", f_cci_oversold & f_mfi_oversold & f_kd_gold),
+            ("雙重超賣 (RSI+CCI)+MACD轉強", f_rsi_oversold & f_cci_oversold & f_macd_grow),
+            ("樞軸點(S1)支撐+KD金叉", (closes > s1) & (lows <= s1) & f_kd_gold & (s1 > 0)),
+            ("突破阻力(R1)+MACD多頭", f_break_r1 & f_macd_positive & f_above_ma20),
+            ("突破樞軸(Pivot)+RSI轉強", f_above_pivot & f_rsi_bull & f_macd_grow),
+            ("S1支撐不破+MACD紅柱增長", (closes > s1) & f_macd_grow & (s1 > 0)),
+            ("多頭拉回：MA60之上+KD金叉+RSI<45", f_above_ma60 & f_kd_gold & (rsi < 45)),
+            ("布林中軌支撐+MACD紅柱", (closes > bb_lower) & (closes < bb_upper) & f_above_ma20 & f_macd_grow),
+            ("動能共振：EOM突破+MACD>0+RSI>50", f_eom_bullish & f_macd_positive & f_rsi_bull),
+            ("雙保險超跌：BIAS超賣+布林下軌觸及", f_bias_oversold & f_bb_oversold),
+            ("主力資金流入：MFI超賣+EOM突破", f_mfi_oversold & f_eom_bullish),
+            ("壓力突破：價格>R1+EOM強勢+MACD>0", f_break_r1 & f_eom_bullish & f_macd_positive),
+            ("長期均線支撐：站上MA120+KD金叉+CCI超賣", f_above_ma120 & f_kd_gold & f_cci_oversold),
+            ("CCI超賣反彈+MACD紅柱增長", f_cci_oversold & f_macd_grow & f_above_ma20)
         ]
 
-        # 5. 定義出場交叉組合策略 (8 種)
+        # 5. 定義出場交叉組合策略 (9 種穩健/動態出場)
         # tp, sl, exit_signals
         exit_strategies = [
-            ("10%停利/5%停損", 0.10, -0.05, np.zeros(n_rows, dtype=bool)),
-            ("15%停利/8%停損", 0.15, -0.08, np.zeros(n_rows, dtype=bool)),
-            ("KD死叉或5%停損", None, -0.05, f_kd_dead),
-            ("RSI超買或5%停損", None, -0.05, f_rsi_overbought),
-            ("MACD縮短或5%停損", None, -0.05, f_macd_shrink),
-            ("跌破MA20或5%停損", None, -0.05, f_below_ma20),
-            ("布林上軌停利或5%停損", None, -0.05, f_bb_overbought),
-            ("跌破支撐(S1)或10%停利", 0.10, None, f_below_s1)
+            ("6%停利 / 6%停損 (穩健勝率)", 0.06, -0.06, np.zeros(n_rows, dtype=bool)),
+            ("8%停利 / 8%停損 (均衡配置)", 0.08, -0.08, np.zeros(n_rows, dtype=bool)),
+            ("12%停利 / 6%停損 (高盈虧比)", 0.12, -0.06, np.zeros(n_rows, dtype=bool)),
+            ("KD死叉離場或6%停損", None, -0.06, f_kd_dead),
+            ("RSI超買離場或6%停損", None, -0.06, f_rsi_overbought),
+            ("MACD紅柱縮短離場或6%停損", None, -0.06, f_macd_shrink),
+            ("收盤跌破MA20或6%停損", None, -0.06, f_below_ma20),
+            ("觸碰布林上軌停利或6%停損", None, -0.06, f_bb_overbought),
+            ("跌破樞軸支撐(S1)或8%停利", 0.08, None, f_below_s1)
         ]
 
         # 6. 開始進行 16 * 8 = 128 種交叉組合爆破回測
