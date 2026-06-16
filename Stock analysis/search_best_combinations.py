@@ -16,6 +16,17 @@ import json
 import pandas as pd
 import numpy as np
 
+class NumpyEncoder(json.JSONEncoder):
+    """自訂 JSON 編碼器，處理 numpy 資料型態的序列化"""
+    def default(self, obj):
+        if isinstance(obj, (np.int64, np.int32, np.int16, np.int8)):
+            return int(obj)
+        elif isinstance(obj, (np.float64, np.float32)):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        return super(NumpyEncoder, self).default(obj)
+
 # ── 路徑設定 ──
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 STOCK_ORIGINAL_DIR = os.path.join(SCRIPT_DIR, "Stock original")
@@ -85,41 +96,68 @@ def main():
     print("  多指標交叉組合回測搜尋引擎 啟動中...")
     print("=" * 60)
 
-    # 1. 搜尋 Stock original 中的 Excel 檔案
-    # 優先找 *_EOM_*.xlsx，若無則找 *.xlsx
-    xlsx_files = glob.glob(os.path.join(STOCK_ORIGINAL_DIR, "*_EOM_*.xlsx"))
-    if not xlsx_files:
-        xlsx_files = glob.glob(os.path.join(STOCK_ORIGINAL_DIR, "*.xlsx"))
+    # 1. 搜尋 Stock original/auto_export 中的 CSV 與 Excel 檔案
+    auto_export_dir = os.path.join(STOCK_ORIGINAL_DIR, "auto_export")
     
-    # 過濾掉備份子資料夾中的檔案
-    xlsx_files = [f for f in xlsx_files if os.path.isfile(f)]
+    candidate_files = []
+    for folder in [auto_export_dir, STOCK_ORIGINAL_DIR]:
+        if os.path.exists(folder):
+            candidate_files.extend(glob.glob(os.path.join(folder, "*.csv")))
+            candidate_files.extend(glob.glob(os.path.join(folder, "*.xlsx")))
+            candidate_files.extend(glob.glob(os.path.join(folder, "*.xls")))
 
-    if not xlsx_files:
-        print(f"❌ 在 {STOCK_ORIGINAL_DIR} 找不到任何 Excel 數據檔案！")
+    # 過濾只保留檔案且名稱格式正確的 (e.g., 2330_台積電_...)
+    valid_files = []
+    for f in candidate_files:
+        if not os.path.isfile(f):
+            continue
+        filename = os.path.basename(f)
+        parts = filename.split('_')
+        if len(parts) >= 2 and parts[0].isdigit():
+            valid_files.append(f)
+
+    if not valid_files:
+        print(f"[錯誤] 找不到任何有效的 CSV 或 Excel 個股數據檔案！")
         return
 
-    print(f"📁 找到 {len(xlsx_files)} 個個股數據檔案，開始載入與回測分析...")
+    # 按股號分組，只保留日期最新（檔名中日期字串最大）的檔案
+    stock_files_map = {}
+    for f in valid_files:
+        filename = os.path.basename(f)
+        base = os.path.splitext(filename)[0]
+        parts = base.split('_')
+        code = parts[0]
+        # 解析日期（通常是最後一個部分，例如 20260615）
+        date_str = parts[-1] if len(parts) >= 3 else ""
+        
+        if code not in stock_files_map:
+            stock_files_map[code] = (f, date_str)
+        else:
+            # 如果目前檔案的日期比已存的更大，則覆蓋
+            if date_str > stock_files_map[code][1]:
+                stock_files_map[code] = (f, date_str)
+
+    selected_files = [v[0] for v in stock_files_map.values()]
+    print(f"[資訊] 共找到 {len(valid_files)} 個資料檔案，已篩選出最新 {len(selected_files)} 檔個股，開始載入與回測分析...")
 
     leaderboard_data = []
 
-    for file_path in xlsx_files:
+    for file_path in selected_files:
         filename = os.path.basename(file_path)
-        # 提取代號與名稱 (例如 2330_台積電_EOM_20260615.xlsx -> code=2330, name=台積電)
-        base = filename.replace('.xlsx', '')
+        base = os.path.splitext(filename)[0]
         parts = base.split('_')
-        if len(parts) >= 2:
-            code, name = parts[0], parts[1]
-        else:
-            code, name = base, base
-
-        # 排除非純數字股號的檔案 (例如系統表單、策略說明等)
-        if not code.isdigit():
-            continue
+        code, name = parts[0], parts[1]
 
         try:
-            df = pd.read_excel(file_path, header=0)
+            if file_path.endswith('.csv'):
+                try:
+                    df = pd.read_csv(file_path, encoding='cp950', header=0)
+                except Exception:
+                    df = pd.read_csv(file_path, encoding='utf-8', header=0)
+            else:
+                df = pd.read_excel(file_path, header=0)
         except Exception as ex:
-            print(f"⚠️ 無法讀取檔案 {filename}: {ex}")
+            print(f"[警告] 無法讀取檔案 {filename}: {ex}")
             continue
 
         # 確保欄位名稱乾淨
@@ -129,15 +167,15 @@ def main():
         df = df.tail(900).reset_index(drop=True)
         n_rows = len(df)
         if n_rows < 20:
-            print(f"⚠️ 個股 {code} {name} 數據筆數不足 20 筆，跳過")
+            print(f"[警告] 個股 {code} {name} 數據筆數不足 20 筆，跳過")
             continue
 
         # 2. 匹配並加載所有技術指標欄位
-        c_date = find_column(df, ['日', 'Date', 'date'])
-        c_open = find_column(df, ['開盤', 'Open', 'open'])
-        c_high = find_column(df, ['最高', 'High', 'high'])
-        c_low = find_column(df, ['最低', 'Low', 'low'])
-        c_close = find_column(df, ['收盤', 'Close', 'close'])
+        c_date = find_column(df, ['日　期', '日期', 'Date', 'date'])
+        c_open = find_column(df, ['開盤價', '開盤', 'Open', 'open'])
+        c_high = find_column(df, ['最高價', '最高', 'High', 'high'])
+        c_low = find_column(df, ['最低價', '最低', 'Low', 'low'])
+        c_close = find_column(df, ['收盤價', '收盤', 'Close', 'close'])
         c_ma5 = find_column(df, ['均價[5]', 'MA5', 'ma5'])
         c_ma20 = find_column(df, ['均價[20]', 'MA20', 'ma20'])
         c_ma60 = find_column(df, ['均價[60]', 'MA60', 'ma60'])
@@ -145,15 +183,15 @@ def main():
         c_eom = find_column(df, ['EOM[60]', 'EOM'])
         c_eom_sig = find_column(df, ['Signal[20]', 'EOM_Signal'])
         c_mfi = find_column(df, ['MFI[14]', 'MFI'])
-        c_macd = find_column(df, ['MACD', 'MACD柱', 'MACD 柱'])
-        c_k = find_column(df, ['%KS', 'K(9,3,3)'])
-        c_d = find_column(df, ['%DS', 'D(9,3,3)'])
+        c_macd = find_column(df, ['MACD', 'MACD柱', 'MACD 柱', 'MACD 柱狀體'])
+        c_k = find_column(df, ['%KS', 'K(9,3,3)', 'K值'])
+        c_d = find_column(df, ['%DS', 'D(9,3,3)', 'D值'])
         c_rsi = find_column(df, ['RSI[14]', 'RSI'])
         c_bias5 = find_column(df, ['BIAS[5]', 'BIAS5'])
         c_bias20 = find_column(df, ['BIAS[20]', 'BIAS20'])
         c_cci = find_column(df, ['CCI[20]', 'CCI'])
-        c_bb_upper = find_column(df, ['布林加通道 上軌', '布林加通道 上', 'BB_Upper'])
-        c_bb_lower = find_column(df, ['布林加通道 下軌', '布林加通道 下', 'BB_Lower'])
+        c_bb_upper = find_column(df, ['布林加通道 上漲', '布林加通道 上軌', '布林加通道 上', 'BB_Upper'])
+        c_bb_lower = find_column(df, ['布林加通道 下跌', '布林加通道 下軌', '布林加通道 下', 'BB_Lower'])
         c_pivot = find_column(df, ['Pivot', 'pivot'])
         c_r1 = find_column(df, ['第1道壓力', 'R1'])
         c_s1 = find_column(df, ['第1道支撐', 'S1'])
@@ -283,9 +321,9 @@ def main():
                 "winRate": best_performance["winRate"],
                 "trades": best_performance["trades"]
             })
-            print(f"  ✅ {code} {name:4s} | 最佳策略：{best_combo_name:<25s} | 獲利：{best_performance['profit']:+10,.0f} 元 | 勝率：{best_performance['winRate']:5.1f}% | ROI：{best_performance['roi']:5.1f}%")
+            print(f"  [成功] {code} {name:4s} | 最佳策略：{best_combo_name:<25s} | 獲利：{best_performance['profit']:+10,.0f} 元 | 勝率：{best_performance['winRate']:5.1f}% | ROI：{best_performance['roi']:5.1f}%")
         else:
-            print(f"  ⚠️ {code} {name:4s} | 無符合最低交易頻率之最佳策略")
+            print(f"  [警告] {code} {name:4s} | 無符合最低交易頻率之最佳策略")
 
     # 8. 儲存至 JSON 排行榜
     if leaderboard_data:
@@ -293,10 +331,10 @@ def main():
         leaderboard_data.sort(key=lambda x: x["profit"], reverse=True)
         os.makedirs(os.path.dirname(OUTPUT_JSON_PATH), exist_ok=True)
         with open(OUTPUT_JSON_PATH, 'w', encoding='utf-8') as f:
-            json.dump(leaderboard_data, f, indent=4, ensure_ascii=False)
-        print(f"\n🎉 搜尋完畢！最佳交叉組合策略排行已成功寫入：{OUTPUT_JSON_PATH}")
+            json.dump(leaderboard_data, f, indent=4, ensure_ascii=False, cls=NumpyEncoder)
+        print(f"\n[完成] 搜尋完畢！最佳交叉組合策略排行已成功寫入：{OUTPUT_JSON_PATH}")
     else:
-        print("\n❌ 未能產出任何有效的回測組合排行數據。")
+        print("\n[失敗] 未能產出任何有效的回測組合排行數據。")
 
 if __name__ == "__main__":
     main()
