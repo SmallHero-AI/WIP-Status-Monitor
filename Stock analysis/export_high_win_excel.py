@@ -14,8 +14,8 @@ from openpyxl.utils import get_column_letter
 SCRIPT_DIR = r"E:\G-AI-1\Stock analysis"
 STOCK_ORIGINAL_DIR = os.path.join(SCRIPT_DIR, "Stock original")
 AUTO_EXPORT_DIR = os.path.join(STOCK_ORIGINAL_DIR, "auto_export")
-LEADERBOARD_PATH = os.path.join(SCRIPT_DIR, "修正版_V5_Server", "public", "leaderboard.json")
-SERVER_DATA_DIR = os.path.join(SCRIPT_DIR, "修正版_V5_Server", "data")
+LEADERBOARD_PATH = os.path.join(SCRIPT_DIR, "修正版_V6_Server", "public", "leaderboard.json")
+SERVER_DATA_DIR = os.path.join(SCRIPT_DIR, "修正版_V6_Server", "data")
 
 def find_column(df, keywords):
     for col in df.columns:

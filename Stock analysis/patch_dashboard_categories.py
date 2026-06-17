@@ -3,10 +3,10 @@ import json
 import os
 
 SCRIPT_DIR = r"E:\G-AI-1\Stock analysis"
-HTML_BASE_PATH = os.path.join(SCRIPT_DIR, "修正版_V5_Server", "public", "dashboard_v5_backup.html")
-HTML_OUT_PATH = os.path.join(SCRIPT_DIR, "修正版_V5_Server", "public", "dashboard_v5.html")
-SERVER_PATH = os.path.join(SCRIPT_DIR, "修正版_V5_Server", "server.js")
-LEADERBOARD_PATH = os.path.join(SCRIPT_DIR, "修正版_V5_Server", "public", "leaderboard.json")
+HTML_BASE_PATH = os.path.join(SCRIPT_DIR, "修正版_V6_Server", "public", "dashboard_v6_backup.html")
+HTML_OUT_PATH = os.path.join(SCRIPT_DIR, "修正版_V6_Server", "public", "dashboard_v6.html")
+SERVER_PATH = os.path.join(SCRIPT_DIR, "修正版_V6_Server", "server.js")
+LEADERBOARD_PATH = os.path.join(SCRIPT_DIR, "修正版_V6_Server", "public", "leaderboard.json")
 
 def main():
     print("=" * 60)
@@ -60,15 +60,25 @@ def main():
             # 預設落入趨勢類
             strat_cat = 'ai_trend'
 
-        tp = 6.0
-        sl = 6.0
-        if "8%停利 / 8%停損" in exit_cond:
+        tp = 0.0
+        sl = 0.0
+        if "6%停利 / 6%停損" in exit_cond:
+            tp, sl = 6.0, 6.0
+        elif "8%停利 / 8%停損" in exit_cond:
             tp, sl = 8.0, 8.0
         elif "12%停利 / 6%停損" in exit_cond:
             tp, sl = 12.0, 6.0
-        elif "6%停利 / 6%停損" in exit_cond:
-            tp, sl = 6.0, 6.0
-        elif "8%停利" in exit_cond:
+        elif "KD死叉離場或6%停損" in exit_cond:
+            sl = 6.0
+        elif "RSI超買離場或6%停損" in exit_cond:
+            sl = 6.0
+        elif "MACD紅柱縮短離場或6%停損" in exit_cond:
+            sl = 6.0
+        elif "收盤跌破MA20或6%停損" in exit_cond:
+            sl = 6.0
+        elif "觸碰布林上軌停利或6%停損" in exit_cond:
+            sl = 6.0
+        elif "跌破樞軸支撐(S1)或8%停利" in exit_cond:
             tp = 8.0
 
         new_stocks.append({
@@ -535,7 +545,7 @@ def main():
     # 儲存修改後的 HTML 檔案
     with open(HTML_OUT_PATH, 'w', encoding='utf-8') as f:
         f.write(content)
-    print("  [成功] 儲存至 dashboard_v5.html")
+    print("  [成功] 儲存至 dashboard_v6.html")
 
     # ── 9. 修改 server.js 預設重導向 ──
     with open(SERVER_PATH, 'r', encoding='utf-8') as f:

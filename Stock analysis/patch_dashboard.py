@@ -3,12 +3,12 @@ import json
 import os
 
 SCRIPT_DIR = r"E:\G-AI-1\Stock analysis"
-HTML_PATH = os.path.join(SCRIPT_DIR, "修正版_V5_Server", "public", "dashboard_v5.html")
-LEADERBOARD_PATH = os.path.join(SCRIPT_DIR, "修正版_V5_Server", "public", "leaderboard.json")
+HTML_PATH = os.path.join(SCRIPT_DIR, "修正版_V6_Server", "public", "dashboard_v6.html")
+LEADERBOARD_PATH = os.path.join(SCRIPT_DIR, "修正版_V6_Server", "public", "leaderboard.json")
 
 def main():
     print("=" * 60)
-    print("  dashboard_v5.html 整合補丁啟動...")
+    print("  dashboard_v6.html 整合補丁啟動...")
     print("=" * 60)
 
     if not os.path.exists(LEADERBOARD_PATH):
@@ -33,15 +33,25 @@ def main():
         entry = parts[0].strip()
         exit_cond = parts[1].strip()
 
-        tp = 6.0
-        sl = 6.0
-        if "8%停利 / 8%停損" in exit_cond:
+        tp = 0.0
+        sl = 0.0
+        if "6%停利 / 6%停損" in exit_cond:
+            tp, sl = 6.0, 6.0
+        elif "8%停利 / 8%停損" in exit_cond:
             tp, sl = 8.0, 8.0
         elif "12%停利 / 6%停損" in exit_cond:
             tp, sl = 12.0, 6.0
-        elif "6%停利 / 6%停損" in exit_cond:
-            tp, sl = 6.0, 6.0
-        elif "8%停利" in exit_cond:
+        elif "KD死叉離場或6%停損" in exit_cond:
+            sl = 6.0
+        elif "RSI超買離場或6%停損" in exit_cond:
+            sl = 6.0
+        elif "MACD紅柱縮短離場或6%停損" in exit_cond:
+            sl = 6.0
+        elif "收盤跌破MA20或6%停損" in exit_cond:
+            sl = 6.0
+        elif "觸碰布林上軌停利或6%停損" in exit_cond:
+            sl = 6.0
+        elif "跌破樞軸支撐(S1)或8%停利" in exit_cond:
             tp = 8.0
 
         new_stocks.append({
@@ -498,7 +508,7 @@ def main():
     with open(HTML_PATH, 'w', encoding='utf-8') as f:
         f.write(content)
     print("=" * 60)
-    print("  補丁套用完畢，dashboard_v5.html 已成功更新！")
+    print("  補丁套用完畢，dashboard_v6.html 已成功更新！")
     print("=" * 60)
 
 if __name__ == "__main__":

@@ -30,7 +30,7 @@ class NumpyEncoder(json.JSONEncoder):
 # ── 路徑設定 ──
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 STOCK_ORIGINAL_DIR = os.path.join(SCRIPT_DIR, "Stock original")
-OUTPUT_JSON_PATH = os.path.join(SCRIPT_DIR, "修正版_V5_Server", "public", "leaderboard.json")
+OUTPUT_JSON_PATH = os.path.join(SCRIPT_DIR, "修正版_V6_Server", "public", "leaderboard.json")
 
 def find_column(df, keywords):
     """根據關鍵字模糊匹配 DataFrame 欄位"""
@@ -282,14 +282,14 @@ def main():
         # 5. 定義出場交叉組合策略 (9 種穩健/動態出場)
         # tp, sl, exit_signals
         exit_strategies = [
-            ("6%停利 / 6%停損 (穩健勝率)", 0.06, -0.06, np.zeros(n_rows, dtype=bool)),
-            ("8%停利 / 8%停損 (均衡配置)", 0.08, -0.08, np.zeros(n_rows, dtype=bool)),
-            ("12%停利 / 6%停損 (高盈虧比)", 0.12, -0.06, np.zeros(n_rows, dtype=bool)),
-            ("KD死叉離場或6%停損", None, -0.06, f_kd_dead),
-            ("RSI超買離場或6%停損", None, -0.06, f_rsi_overbought),
-            ("MACD紅柱縮短離場或6%停損", None, -0.06, f_macd_shrink),
-            ("收盤跌破MA20或6%停損", None, -0.06, f_below_ma20),
-            ("觸碰布林上軌停利或6%停損", None, -0.06, f_bb_overbought),
+            ("6%停利 / 6%停損 (穩健勝率)", 0.06, 0.06, np.zeros(n_rows, dtype=bool)),
+            ("8%停利 / 8%停損 (均衡配置)", 0.08, 0.08, np.zeros(n_rows, dtype=bool)),
+            ("12%停利 / 6%停損 (高盈虧比)", 0.12, 0.06, np.zeros(n_rows, dtype=bool)),
+            ("KD死叉離場或6%停損", None, 0.06, f_kd_dead),
+            ("RSI超買離場或6%停損", None, 0.06, f_rsi_overbought),
+            ("MACD紅柱縮短離場或6%停損", None, 0.06, f_macd_shrink),
+            ("收盤跌破MA20或6%停損", None, 0.06, f_below_ma20),
+            ("觸碰布林上軌停利或6%停損", None, 0.06, f_bb_overbought),
             ("跌破樞軸支撐(S1)或8%停利", 0.08, None, f_below_s1)
         ]
 
