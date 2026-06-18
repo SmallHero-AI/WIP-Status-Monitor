@@ -18,8 +18,8 @@ def main():
     with open(LEADERBOARD_PATH, 'r', encoding='utf-8') as f:
         leaderboard = json.load(f)
 
-    # 篩選勝率 >= 70% 的股票
-    high_win = [x for x in leaderboard if x['winRate'] >= 70]
+    # 篩選勝率 >= 75% 的股票
+    high_win = [x for x in leaderboard if x['winRate'] >= 75]
     print(f"[資訊] 篩選出 {len(high_win)} 檔高勝率個股")
 
     # 1. 準備 preloadedStocks 與 xlsxFiles 補丁內容

@@ -174,9 +174,9 @@ def main():
     with open(LEADERBOARD_PATH, 'r', encoding='utf-8') as f:
         leaderboard = json.load(f)
 
-    # 篩選勝率 >= 70% 的股票
-    high_win = [x for x in leaderboard if x['winRate'] >= 70]
-    print(f"[資訊] 共有 {len(high_win)} 檔股票勝率 >= 70%")
+    # 篩選勝率 >= 75% 的股票
+    high_win = [x for x in leaderboard if x['winRate'] >= 75]
+    print(f"[資訊] 共有 {len(high_win)} 檔股票勝率 >= 75%")
 
     # 尋找所有可用個股資料
     candidate_files = []
