@@ -287,8 +287,8 @@ def main():
                 win_rate = (wins / trades * 100) if trades > 0 else 0
                 roi = (pnl / max_capital * 100) if max_capital > 0 else 0
 
-                # 條件：交易次數 >= 5 且勝率 >= 75% 且利潤高於目前最優
-                if trades >= 5 and win_rate >= 75.0:
+                # 條件：交易次數 >= 5 且勝率 >= 75% 且整體 ROI >= 60.0% 且利潤高於目前最優
+                if trades >= 5 and win_rate >= 75.0 and roi >= 60.0:
                     if pnl > best_pnl:
                         best_pnl = pnl
                         best_win_rate = win_rate
