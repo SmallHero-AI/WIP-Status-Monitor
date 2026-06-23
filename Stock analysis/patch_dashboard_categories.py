@@ -3,8 +3,8 @@ import json
 import os
 
 SCRIPT_DIR = r"E:\G-AI-1\Stock analysis"
-HTML_BASE_PATH = os.path.join(SCRIPT_DIR, "修正版_V6_Server", "public", "dashboard_v6_backup.html")
-HTML_OUT_PATH = os.path.join(SCRIPT_DIR, "修正版_V6_Server", "public", "dashboard_v6.html")
+HTML_BASE_PATH = os.path.join(SCRIPT_DIR, "修正版_V6_Server", "public", "dashboard_v7_backup.html")
+HTML_OUT_PATH = os.path.join(SCRIPT_DIR, "修正版_V6_Server", "public", "dashboard_v7.html")
 SERVER_PATH = os.path.join(SCRIPT_DIR, "修正版_V6_Server", "server.js")
 LEADERBOARD_PATH = os.path.join(SCRIPT_DIR, "修正版_V6_Server", "public", "leaderboard.json")
 
@@ -152,7 +152,7 @@ def main():
     # 儲存修改後的 HTML 檔案
     with open(HTML_OUT_PATH, 'w', encoding='utf-8') as f:
         f.write(content)
-    print("  [成功] 儲存至 dashboard_v6.html")
+    print("  [成功] 儲存至 dashboard_v7.html")
     print("=" * 60)
 
 if __name__ == "__main__":
