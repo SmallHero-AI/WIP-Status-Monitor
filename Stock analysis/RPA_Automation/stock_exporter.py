@@ -23,6 +23,18 @@ from datetime import datetime
 import win32com.client
 import json
 import shutil
+import sys
+
+if sys.stdout.encoding != 'utf-8':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except AttributeError:
+        pass
+if sys.stderr.encoding != 'utf-8':
+    try:
+        sys.stderr.reconfigure(encoding='utf-8')
+    except AttributeError:
+        pass
 
 
 # ======================== PyAutoGUI 安全設定 ========================
@@ -544,7 +556,7 @@ def calibrate_coordinates():
     print("    - [匯出選單] (預設約 550, 475)")
     print("-" * 55)
     
-    input("👉 按 [Enter] 鍵開始顯示座標... (結束請按 Ctrl+C)")
+    input("[->] 按 [Enter] 鍵開始顯示座標... (結束請按 Ctrl+C)")
     
     try:
         while True:
@@ -588,7 +600,7 @@ def calibrate_coordinates():
     for k, v in COORD.items():
         print(f"  {k:18s}: {v}")
     print("=" * 55 + "\n")
-    input("👉 按 [Enter] 鍵繼續執行 RPA 匯出程式...")
+    input("[->] 按 [Enter] 鍵繼續執行 RPA 匯出程式...")
 
 
 def update_stock_database(success_list):
@@ -689,13 +701,13 @@ def main():
         print(f"    {k:18s}: {v}", flush=True)
     print("-" * 62, flush=True)
     
-    ans = input("❓ 是否需要更新/校準滑鼠座標設定？(y/N) [預設為 N]: ").strip().lower()
+    ans = input("[?] 是否需要更新/校準滑鼠座標設定？(y/N) [預設為 N]: ").strip().lower()
     if ans == 'y':
         calibrate_coordinates()
 
     # 詢問起始個股代號
     print("-" * 62, flush=True)
-    start_code = input("❓ 請輸入起始個股代號 (按 Enter 則從第一筆開始): ").strip()
+    start_code = input("[?] 請輸入起始個股代號 (按 Enter 則從第一筆開始): ").strip()
     
     global STOCK_LIST
     if start_code:
@@ -800,7 +812,7 @@ def main():
         print(f"\n{'='*62}", flush=True)
         print("  資料庫自動更新 (CSV 轉存 Excel 並備份舊資料)", flush=True)
         print("=" * 62, flush=True)
-        ans = input("❓ 是否將今日匯出的 CSV 檔案轉換為 Excel 並更新至 Stock original 目錄？(Y/n) [預設為 Y]: ").strip().lower()
+        ans = input("[?] 是否將今日匯出的 CSV 檔案轉換為 Excel 並更新至 Stock original 目錄？(Y/n) [預設為 Y]: ").strip().lower()
         if ans != 'n':
             update_stock_database(success)
         print("=" * 62, flush=True)
