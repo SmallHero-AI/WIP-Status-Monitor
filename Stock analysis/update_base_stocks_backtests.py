@@ -60,21 +60,25 @@ def main():
     for code, filename in BASE_STOCKS.items():
         print(f"🔄 正在處理股號 {code} ({filename})...")
         
-        # 1. 尋找最新的 CSV
+        # 1. 尋找最新的行情檔案 (CSV 或 XLSX)
         csv_pattern = os.path.join(AUTO_EXPORT_DIR, f"{code}_*.csv")
-        csv_files = glob.glob(csv_pattern)
-        if not csv_files:
-            print(f"  ⚠️  找不到股號 {code} 的 CSV 行情檔案！跳過...")
+        xlsx_pattern = os.path.join(AUTO_EXPORT_DIR, f"{code}_*.xlsx")
+        files = glob.glob(csv_pattern) + glob.glob(xlsx_pattern)
+        if not files:
+            print(f"  ⚠️  找不到股號 {code} 的行情檔案 (CSV/XLSX)！跳過...")
             continue
             
         # 按檔名日期排序，挑選最新的
-        csv_files.sort()
-        latest_csv = csv_files[-1]
-        print(f"  📌  讀取 CSV 行情: {os.path.basename(latest_csv)}")
+        files.sort()
+        latest_file = files[-1]
+        print(f"  📌  讀取行情: {os.path.basename(latest_file)}")
         
         try:
             # 2. 讀取與清理數據
-            df = pd.read_csv(latest_csv, encoding='cp950')
+            if latest_file.endswith('.csv'):
+                df = pd.read_csv(latest_file, encoding='cp950')
+            else:
+                df = pd.read_excel(latest_file)
             
             # 取前 15 欄
             df_subset = df.iloc[:, :15].copy()
