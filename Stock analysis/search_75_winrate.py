@@ -248,6 +248,10 @@ def main():
         best_win_rate = 0.0
         best_trades = 0
         best_roi = 0.0
+        best_hold = False
+        best_buy_price = 0.0
+        best_buy_date = None
+        best_current_price = 0.0
 
         # 執行 180 種組合回測
         for ent_name, ent_sig in entry_strategies:
@@ -258,6 +262,7 @@ def main():
                 wins = 0
                 hold = False
                 buy_price = 0
+                buy_date = None
                 max_capital = 0
 
                 for i in range(1, n_rows - 1):
@@ -265,6 +270,10 @@ def main():
                         if ent_sig[i]:
                             hold = True
                             buy_price = opens[i+1]
+                            try:
+                                buy_date = str(int(float(df.iloc[i+1, 0])))
+                            except Exception:
+                                buy_date = str(df.iloc[i+1, 0]).strip()
                             trades += 1
                             max_capital = max(max_capital, buy_price * shares)
                     else:
@@ -283,6 +292,7 @@ def main():
                             if trade_pnl > 0:
                                 wins += 1
                             buy_price = 0
+                            buy_date = None
 
                 win_rate = (wins / trades * 100) if trades > 0 else 0
                 roi = (pnl / max_capital * 100) if max_capital > 0 else 0
@@ -295,10 +305,30 @@ def main():
                         best_trades = trades
                         best_roi = roi
                         best_combo_name = f"{ent_name} & {ext_name}"
+                        # 紀錄最新持倉狀態
+                        best_hold = hold
+                        best_buy_price = buy_price
+                        best_buy_date = buy_date
+                        best_current_price = closes[-1] if len(closes) > 0 else 0
 
         # 註冊篩選結果
         if best_combo_name is not None:
             success_count += 1
+            holding_obj = None
+            if best_hold:
+                holding_pnl = (best_current_price - best_buy_price) * 1000
+                holding_roi = ((best_current_price - best_buy_price) / best_buy_price * 100) if best_buy_price > 0 else 0
+                holding_obj = {
+                    "hold": True,
+                    "buyDate": best_buy_date,
+                    "buyPrice": best_buy_price,
+                    "currentPrice": best_current_price,
+                    "pnl": holding_pnl,
+                    "roi": holding_roi,
+                    "shares": 1.0,
+                    "posType": "多單"
+                }
+
             leaderboard_data.append({
                 "code": code,
                 "name": name,
@@ -306,9 +336,10 @@ def main():
                 "profit": best_pnl,
                 "roi": best_roi,
                 "winRate": best_win_rate,
-                "trades": best_trades
+                "trades": best_trades,
+                "holding": holding_obj
             })
-            print(f"  [SUCCESS {success_count}] {code} {name:4s} | WinRate: {best_win_rate:5.1f}% | Profit: {best_pnl:+10,.0f} | Trades: {best_trades:3d} | Strategy: {best_combo_name}")
+            print(f"  [SUCCESS {success_count}] {code} {name:4s} | WinRate: {best_win_rate:5.1f}% | Profit: {best_pnl:+10,.0f} | Trades: {best_trades:3d} | Strategy: {best_combo_name} | Holding: {best_hold}")
 
         if processed_count % 50 == 0:
             print(f"[Progress] Processed {processed_count}/{total_files} stocks...")
