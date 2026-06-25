@@ -506,7 +506,7 @@ def main():
         }
 
         // 切換至績效排行榜"""
-    if marker_function in html and "changeActiveDirection" not in html:
+    if marker_function in html and "function changeActiveDirection" not in html:
         html = html.replace(marker_function, new_v8_functions)
         print("  [成功] 注入 V8 後台邏輯控制與統計運算函數")
 
