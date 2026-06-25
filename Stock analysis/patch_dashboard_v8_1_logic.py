@@ -1,7 +1,7 @@
 
 # ── V8.1 Injection Variables ──
 NEW_HTML_CONTENT = """        <!-- 📈 策略進出場成績總覽頁面 (V8.1) -->
-        <div id="tab_overview" class="page" style="max-width: 1280px; margin: 0 auto; display: none;">
+        <div id="tab_overview" class="page" style="max-width: 1280px; margin: 0 auto;">
             <style>
                 /* 策略進出場成績總覽自訂樣式 (V8.1) */
                 .overview-container {
