@@ -126,12 +126,80 @@ NEW_HTML_CONTENT = """        <!-- 📈 策略進出場成績總覽頁面 (V8.1)
                 }
                 
                 .main-panel.light-theme .overview-stat-card {
-                    background: #f8fafc;
+                    background: #ffffff;
                     border: 1px solid #e2e8f0;
+                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.02);
                 }
                 .main-panel.dark-theme .overview-stat-card {
-                    background: rgba(30, 41, 59, 0.3);
-                    border: 1px solid rgba(255, 255, 255, 0.05);
+                    background: rgba(30, 41, 59, 0.4);
+                    border: 1px solid rgba(255, 255, 255, 0.06);
+                    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+                }
+                .overview-stat-label {
+                    font-size: 0.82rem;
+                    font-weight: 700;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    margin-bottom: 8px;
+                }
+                .main-panel.light-theme .overview-stat-label {
+                    color: #64748b;
+                }
+                .main-panel.dark-theme .overview-stat-label {
+                    color: #94a3b8;
+                }
+                .overview-stat-value {
+                    font-size: 1.6rem;
+                    font-weight: 800;
+                    font-family: 'Outfit', sans-serif;
+                }
+                .main-panel.light-theme .overview-stat-value {
+                    color: #0f172a;
+                }
+                .main-panel.dark-theme .overview-stat-value {
+                    color: #f8fafc;
+                }
+                
+                /* V8.1 Table Overrides */
+                .overview-main .info-table {
+                    width: 100% !important;
+                    border-collapse: collapse !important;
+                    margin-top: 10px;
+                    border-radius: 8px;
+                    overflow: hidden;
+                }
+                .main-panel.light-theme .overview-main .info-table {
+                    background: #ffffff !important;
+                    border: 1px solid #e2e8f0 !important;
+                }
+                .main-panel.dark-theme .overview-main .info-table {
+                    background: rgba(30, 41, 59, 0.2) !important;
+                    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+                }
+                .overview-main .info-table th, 
+                .overview-main .info-table td {
+                    padding: 12px 15px !important;
+                    text-align: center !important;
+                }
+                .main-panel.light-theme .overview-main .info-table th, 
+                .main-panel.light-theme .overview-main .info-table td {
+                    border: 1px solid #edf2f7 !important;
+                }
+                .main-panel.dark-theme .overview-main .info-table th, 
+                .main-panel.dark-theme .overview-main .info-table td {
+                    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+                }
+                .overview-main .info-table th {
+                    font-weight: 700 !important;
+                    font-size: 0.85rem !important;
+                }
+                .main-panel.light-theme .overview-main .info-table th {
+                    background: #f1f5f9 !important;
+                    color: #475569 !important;
+                }
+                .main-panel.dark-theme .overview-main .info-table th {
+                    background: #0f172a !important;
+                    color: #cbd5e1 !important;
                 }
             </style>
             
@@ -177,20 +245,20 @@ NEW_HTML_CONTENT = """        <!-- 📈 策略進出場成績總覽頁面 (V8.1)
                 <div class="overview-main">
                     <div class="overview-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
                         <div class="overview-stat-card" style="padding: 20px; border-radius: 12px; text-align: center;">
-                            <div style="color: var(--text-muted); font-size: 0.82rem; font-weight: 600; text-transform: uppercase; margin-bottom: 8px;">預估總投入成本</div>
-                            <div id="overview_stat_cost" style="font-size: 1.5rem; font-weight: 800; color: var(--text-main);">$0</div>
+                            <div class="overview-stat-label">預估總投入成本</div>
+                            <div id="overview_stat_cost" class="overview-stat-value">$0</div>
                         </div>
                         <div class="overview-stat-card" style="padding: 20px; border-radius: 12px; text-align: center;">
-                            <div style="color: var(--text-muted); font-size: 0.82rem; font-weight: 600; text-transform: uppercase; margin-bottom: 8px;">投資組合累積淨損益</div>
-                            <div id="overview_stat_profit" style="font-size: 1.5rem; font-weight: 800; color: var(--text-main);">$0</div>
+                            <div class="overview-stat-label">投資組合累積淨損益</div>
+                            <div id="overview_stat_profit" class="overview-stat-value">$0</div>
                         </div>
                         <div class="overview-stat-card" style="padding: 20px; border-radius: 12px; text-align: center;">
-                            <div style="color: var(--text-muted); font-size: 0.82rem; font-weight: 600; text-transform: uppercase; margin-bottom: 8px;">投資組合投報率 (ROI)</div>
-                            <div id="overview_stat_roi" style="font-size: 1.5rem; font-weight: 800; color: var(--text-main);">0.00%</div>
+                            <div class="overview-stat-label">投資組合投報率 (ROI)</div>
+                            <div id="overview_stat_roi" class="overview-stat-value">0.00%</div>
                         </div>
                         <div class="overview-stat-card" style="padding: 20px; border-radius: 12px; text-align: center;">
-                            <div style="color: var(--text-muted); font-size: 0.82rem; font-weight: 600; text-transform: uppercase; margin-bottom: 8px;">交易統計 & 勝率</div>
-                            <div id="overview_stat_winrate_trades" style="font-size: 1.5rem; font-weight: 800; color: var(--text-main);">0% (0次)</div>
+                            <div class="overview-stat-label">交易統計 & 勝率</div>
+                            <div id="overview_stat_winrate_trades" class="overview-stat-value">0% (0次)</div>
                         </div>
                     </div>
 
@@ -344,8 +412,8 @@ NEW_JS_FUNCTIONS = """        // V8 交易方向與成績總覽邏輯 (V8.1 升�
                 itemDiv.innerHTML = `
                     <input type="checkbox" data-code="${s.code}" ${isChecked ? 'checked' : ''} onchange="toggleStockSelection('${s.code}', this.checked)">
                     <div style="flex:1; display:flex; justify-content:space-between; align-items:center; font-size:0.9rem;">
-                        <span style="font-weight:600;">\${s.code} \${s.name}</span>
-                        <span style="color:#10b981; font-weight:700; font-size:0.8rem;">\${s.winRate.toFixed(1)}%勝率</span>
+                        <span style="font-weight:600;">${s.code} ${s.name}</span>
+                        <span style="color:#10b981; font-weight:700; font-size:0.8rem;">${s.winRate.toFixed(1)}%勝率</span>
                     </div>
                 `;
                 container.appendChild(itemDiv);
@@ -545,14 +613,14 @@ NEW_JS_FUNCTIONS = """        // V8 交易方向與成績總覽邏輯 (V8.1 升�
                         const tr = document.createElement('tr');
                         const pnlColor = h.pnl >= 0 ? '#10b981' : '#ef4444';
                         tr.innerHTML = `
-                            <td style="padding:10px; font-weight:600;">\${h.code} \${h.name}</td>
-                            <td style="padding:10px;"><span style="background:\${h.posType === '空單' ? 'rgba(168, 85, 247, 0.15)' : 'rgba(99, 102, 241, 0.15)'}; color:\${h.posType === '空單' ? '#a855f7' : '#4f46e5'}; padding:2px 8px; border-radius:12px; font-size:0.8rem; font-weight:700;">\${h.posType}</span></td>
-                            <td style="padding:10px;">\${h.buyDate}</td>
-                            <td style="padding:10px;">\${(h.buyPrice || 0).toFixed(2)}</td>
-                            <td style="padding:10px;">\${(h.currentPrice || 0).toFixed(2)}</td>
-                            <td style="padding:10px; font-weight:700; color:\${pnlColor};">\${(h.pnl >= 0 ? '+' : '') + h.pnl.toLocaleString()}</td>
-                            <td style="padding:10px; font-weight:700; color:\${pnlColor};">\${(h.roi >= 0 ? '+' : '') + h.roi.toFixed(2)}%</td>
-                            <td style="padding:10px;"><button onclick="const stk = preloadedStocks.find(s => s.id === '\${h.uniqueId}'); selectStockTab('\${h.uniqueId}', '\${h.code}', '\${h.name}', stk ? stk.strategy : 'ai_trend', 'preload')" style="padding:4px 8px; background:#4f46e5; color:white; border:none; border-radius:4px; font-size:0.8rem; cursor:pointer;">🔍 查看</button></td>
+                            <td style="padding:10px; font-weight:600;">${h.code} ${h.name}</td>
+                            <td style="padding:10px;"><span style="background:${h.posType === '空單' ? 'rgba(168, 85, 247, 0.15)' : 'rgba(99, 102, 241, 0.15)'}; color:${h.posType === '空單' ? '#a855f7' : '#4f46e5'}; padding:2px 8px; border-radius:12px; font-size:0.8rem; font-weight:700;">${h.posType}</span></td>
+                            <td style="padding:10px;">${h.buyDate}</td>
+                            <td style="padding:10px;">${(h.buyPrice || 0).toFixed(2)}</td>
+                            <td style="padding:10px;">${(h.currentPrice || 0).toFixed(2)}</td>
+                            <td style="padding:10px; font-weight:700; color:${pnlColor};">${(h.pnl >= 0 ? '+' : '') + h.pnl.toLocaleString()}</td>
+                            <td style="padding:10px; font-weight:700; color:${pnlColor};">${(h.roi >= 0 ? '+' : '') + h.roi.toFixed(2)}%</td>
+                            <td style="padding:10px;"><button onclick="const stk = preloadedStocks.find(s => s.id === '${h.uniqueId}'); selectStockTab('${h.uniqueId}', '${h.code}', '${h.name}', stk ? stk.strategy : 'ai_trend', 'preload')" style="padding:4px 8px; background:#4f46e5; color:white; border:none; border-radius:4px; font-size:0.8rem; cursor:pointer;">🔍 查看</button></td>
                         `;
                         holdingsBody.appendChild(tr);
                     });
@@ -571,15 +639,15 @@ NEW_JS_FUNCTIONS = """        // V8 交易方向與成績總覽邏輯 (V8.1 升�
                         const tr = document.createElement('tr');
                         const pnlColor = t.pnl >= 0 ? '#10b981' : '#ef4444';
                         tr.innerHTML = `
-                            <td style="padding:12px; font-weight:600;">\${t.code} \${t.name}</td>
-                            <td style="padding:12px;"><span style="background:\${t.posType === '空單' ? 'rgba(168, 85, 247, 0.15)' : 'rgba(99, 102, 241, 0.15)'}; color:\${t.posType === '空單' ? '#a855f7' : '#4f46e5'}; padding:2px 8px; border-radius:12px; font-size:0.8rem; font-weight:700;">\${t.posType}</span></td>
-                            <td style="padding:12px; font-size:0.85rem; color:var(--text-muted);">\${t.strategy}</td>
-                            <td style="padding:12px;">\${t.entryDate}</td>
-                            <td style="padding:12px;">\${(t.entryPrice || 0).toFixed(2)}</td>
-                            <td style="padding:12px;">\${t.exitDate}</td>
-                            <td style="padding:12px;">\${(t.exitPrice || 0).toFixed(2)}</td>
-                            <td style="padding:12px; font-weight:700; color:\${pnlColor};">\${(t.pnl >= 0 ? '+' : '') + t.pnl.toLocaleString()}</td>
-                            <td style="padding:12px; font-weight:700; color:\${pnlColor};">\${(t.roi >= 0 ? '+' : '') + t.roi.toFixed(2)}%</td>
+                            <td style="padding:12px; font-weight:600;">${t.code} ${t.name}</td>
+                            <td style="padding:12px;"><span style="background:${t.posType === '空單' ? 'rgba(168, 85, 247, 0.15)' : 'rgba(99, 102, 241, 0.15)'}; color:${t.posType === '空單' ? '#a855f7' : '#4f46e5'}; padding:2px 8px; border-radius:12px; font-size:0.8rem; font-weight:700;">${t.posType}</span></td>
+                            <td style="padding:12px; font-size:0.85rem; color:var(--text-muted);">${t.strategy}</td>
+                            <td style="padding:12px;">${t.entryDate}</td>
+                            <td style="padding:12px;">${(t.entryPrice || 0).toFixed(2)}</td>
+                            <td style="padding:12px;">${t.exitDate}</td>
+                            <td style="padding:12px;">${(t.exitPrice || 0).toFixed(2)}</td>
+                            <td style="padding:12px; font-weight:700; color:${pnlColor};">${(t.pnl >= 0 ? '+' : '') + t.pnl.toLocaleString()}</td>
+                            <td style="padding:12px; font-weight:700; color:${pnlColor};">${(t.roi >= 0 ? '+' : '') + t.roi.toFixed(2)}%</td>
                         `;
                         historyBody.appendChild(tr);
                     });
@@ -1070,14 +1138,14 @@ def main():
                         const tr = document.createElement('tr');
                         const pnlColor = h.pnl >= 0 ? '#10b981' : '#ef4444';
                         tr.innerHTML = `
-                            <td style="padding:10px; font-weight:600;">\${h.code} \${h.name}</td>
-                            <td style="padding:10px;"><span style="background:\${h.posType === '空單' ? 'rgba(168, 85, 247, 0.15)' : 'rgba(99, 102, 241, 0.15)'}; color:\${h.posType === '空單' ? '#a855f7' : '#4f46e5'}; padding:2px 8px; border-radius:12px; font-size:0.8rem; font-weight:700;">\${h.posType}</span></td>
-                            <td style="padding:10px;">\${h.buyDate}</td>
-                            <td style="padding:10px;">\${(h.buyPrice || 0).toFixed(2)}</td>
-                            <td style="padding:10px;">\${(h.currentPrice || 0).toFixed(2)}</td>
-                            <td style="padding:10px; font-weight:700; color:\${pnlColor};">\${(h.pnl >= 0 ? '+' : '') + h.pnl.toLocaleString()}</td>
-                            <td style="padding:10px; font-weight:700; color:\${pnlColor};">\${(h.roi >= 0 ? '+' : '') + h.roi.toFixed(2)}%</td>
-                            <td style="padding:10px;"><button onclick="const stk = preloadedStocks.find(s => s.id === '\${h.uniqueId}'); selectStockTab('\${h.uniqueId}', '\${h.code}', '\${h.name}', stk ? stk.strategy : 'ai_trend', 'preload')" style="padding:4px 8px; background:#4f46e5; color:white; border:none; border-radius:4px; font-size:0.8rem; cursor:pointer;">🔍 查看</button></td>
+                            <td style="padding:10px; font-weight:600;">${h.code} ${h.name}</td>
+                            <td style="padding:10px;"><span style="background:${h.posType === '空單' ? 'rgba(168, 85, 247, 0.15)' : 'rgba(99, 102, 241, 0.15)'}; color:${h.posType === '空單' ? '#a855f7' : '#4f46e5'}; padding:2px 8px; border-radius:12px; font-size:0.8rem; font-weight:700;">${h.posType}</span></td>
+                            <td style="padding:10px;">${h.buyDate}</td>
+                            <td style="padding:10px;">${(h.buyPrice || 0).toFixed(2)}</td>
+                            <td style="padding:10px;">${(h.currentPrice || 0).toFixed(2)}</td>
+                            <td style="padding:10px; font-weight:700; color:${pnlColor};">${(h.pnl >= 0 ? '+' : '') + h.pnl.toLocaleString()}</td>
+                            <td style="padding:10px; font-weight:700; color:${pnlColor};">${(h.roi >= 0 ? '+' : '') + h.roi.toFixed(2)}%</td>
+                            <td style="padding:10px;"><button onclick="const stk = preloadedStocks.find(s => s.id === '${h.uniqueId}'); selectStockTab('${h.uniqueId}', '${h.code}', '${h.name}', stk ? stk.strategy : 'ai_trend', 'preload')" style="padding:4px 8px; background:#4f46e5; color:white; border:none; border-radius:4px; font-size:0.8rem; cursor:pointer;">🔍 查看</button></td>
                         `;
                         holdingsBody.appendChild(tr);
                     });
@@ -1095,15 +1163,15 @@ def main():
                         const tr = document.createElement('tr');
                         const pnlColor = t.pnl >= 0 ? '#10b981' : '#ef4444';
                         tr.innerHTML = `
-                            <td style="padding:12px; font-weight:600;">\${t.code} \${t.name}</td>
-                            <td style="padding:12px;"><span style="background:\${t.posType === '空單' ? 'rgba(168, 85, 247, 0.15)' : 'rgba(99, 102, 241, 0.15)'}; color:\${t.posType === '空單' ? '#a855f7' : '#4f46e5'}; padding:2px 8px; border-radius:12px; font-size:0.8rem; font-weight:700;">\${t.posType}</span></td>
-                            <td style="padding:12px; font-size:0.85rem; color:#475569;">\${t.strategy}</td>
-                            <td style="padding:12px;">\${t.entryDate}</td>
-                            <td style="padding:12px;">\${(t.entryPrice || 0).toFixed(2)}</td>
-                            <td style="padding:12px;">\${t.exitDate}</td>
-                            <td style="padding:12px;">\${(t.exitPrice || 0).toFixed(2)}</td>
-                            <td style="padding:12px; font-weight:700; color:\${pnlColor};">\${(t.pnl >= 0 ? '+' : '') + t.pnl.toLocaleString()}</td>
-                            <td style="padding:12px; font-weight:700; color:\${pnlColor};">\${(t.roi >= 0 ? '+' : '') + t.roi.toFixed(2)}%</td>
+                            <td style="padding:12px; font-weight:600;">${t.code} ${t.name}</td>
+                            <td style="padding:12px;"><span style="background:${t.posType === '空單' ? 'rgba(168, 85, 247, 0.15)' : 'rgba(99, 102, 241, 0.15)'}; color:${t.posType === '空單' ? '#a855f7' : '#4f46e5'}; padding:2px 8px; border-radius:12px; font-size:0.8rem; font-weight:700;">${t.posType}</span></td>
+                            <td style="padding:12px; font-size:0.85rem; color:#475569;">${t.strategy}</td>
+                            <td style="padding:12px;">${t.entryDate}</td>
+                            <td style="padding:12px;">${(t.entryPrice || 0).toFixed(2)}</td>
+                            <td style="padding:12px;">${t.exitDate}</td>
+                            <td style="padding:12px;">${(t.exitPrice || 0).toFixed(2)}</td>
+                            <td style="padding:12px; font-weight:700; color:${pnlColor};">${(t.pnl >= 0 ? '+' : '') + t.pnl.toLocaleString()}</td>
+                            <td style="padding:12px; font-weight:700; color:${pnlColor};">${(t.roi >= 0 ? '+' : '') + t.roi.toFixed(2)}%</td>
                         `;
                         historyBody.appendChild(tr);
                     });
