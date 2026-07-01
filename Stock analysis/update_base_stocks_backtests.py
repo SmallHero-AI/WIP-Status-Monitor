@@ -61,15 +61,25 @@ def main():
         print(f"🔄 正在處理股號 {code} ({filename})...")
         
         # 1. 尋找最新的行情檔案 (CSV 或 XLSX)
-        csv_pattern = os.path.join(AUTO_EXPORT_DIR, f"{code}_*.csv")
-        xlsx_pattern = os.path.join(AUTO_EXPORT_DIR, f"{code}_*.xlsx")
-        files = glob.glob(csv_pattern) + glob.glob(xlsx_pattern)
+        files = []
+        for folder in [AUTO_EXPORT_DIR, os.path.join(SCRIPT_DIR, "Stock original")]:
+            csv_pattern = os.path.join(folder, f"{code}_*.csv")
+            xlsx_pattern = os.path.join(folder, f"{code}_*.xlsx")
+            files.extend(glob.glob(csv_pattern) + glob.glob(xlsx_pattern))
+        
         if not files:
             print(f"  ⚠️  找不到股號 {code} 的行情檔案 (CSV/XLSX)！跳過...")
             continue
             
-        # 按檔名日期排序，挑選最新的
-        files.sort()
+        def get_file_date(filepath):
+            filename = os.path.basename(filepath)
+            match = re.search(r'\d{8}', filename)
+            if match:
+                return match.group(0)
+            return ""
+
+        # 按檔名日期與類型排序，挑選最新的 (優先選擇同日期的 xlsx)
+        files.sort(key=lambda f: (get_file_date(f), f.endswith('.xlsx'), f))
         latest_file = files[-1]
         print(f"  📌  讀取行情: {os.path.basename(latest_file)}")
         
