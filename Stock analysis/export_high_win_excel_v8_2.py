@@ -613,6 +613,16 @@ def main():
         for cell_ref in ['B3', 'B4', 'B5', 'B6']:
             ws_data[cell_ref].font = normal_font
 
+        # 找出「開盤價」在 df_cols_present 中的 index
+        c_open_col_idx = 3
+        try:
+            c_open_actual = find_column(df, ["開盤價", "開盤", "Open", "open"])
+            if c_open_actual in df_cols_present:
+                c_open_col_idx = df_cols_present.index(c_open_actual) + 1
+        except Exception:
+            pass
+        col_C_open = get_column_letter(c_open_col_idx)
+
         # 寫入公式
         n_data = len(df)
         for idx in range(n_data):
@@ -621,29 +631,33 @@ def main():
             ws_data[f'{col_R}{r}'] = bool(ent_sig[idx])
             ws_data[f'{col_S}{r}'] = bool(ext_sig[idx])
 
-            # 公式引用前一日的狀態
-            pr = r - 1 if r > 9 else r
-            pR = f'{col_R}{pr}'
-            pS = f'{col_U}{pr}'
-            pW = f'{col_W}{pr}' if r > 9 else '0'
-            
-            if not is_short:
-                # 多單動作(T)
-                ws_data[f'{col_T}{r}'] = f'=IF(AND({pR}=FALSE, {col_R}{r}=TRUE), "買進", IF(AND({pR}=TRUE, {col_R}{r}=FALSE), "賣出", ""))'
-                # 交易價格(U)
-                ws_data[f'{col_U}{r}'] = f'=IF({col_T}{r}="買進", B{r}, IF({col_T}{r}="賣出", B{r}, 0))'
-                # 多單單筆損益(V): (賣出價格 - 買進成本) * 股數
-                ws_data[f'{col_V}{r}'] = f'=IF({col_T}{r}="賣出", ({col_U}{r} - {pS}) * $B$6, 0)'
+            if r == 9:
+                # 第一行初始值 (無前一日狀態)
+                ws_data[f'{col_T}{r}'] = ""
+                ws_data[f'{col_U}{r}'] = 0.0
+                ws_data[f'{col_V}{r}'] = 0.0
+                ws_data[f'{col_W}{r}'] = 0.0
             else:
-                # 空單動作(T)
-                ws_data[f'{col_T}{r}'] = f'=IF(AND({pR}=FALSE, {col_R}{r}=TRUE), "放空", IF(AND({pR}=TRUE, {col_R}{r}=FALSE), "回補", ""))'
-                # 交易價格(U)
-                ws_data[f'{col_U}{r}'] = f'=IF({col_T}{r}="放空", B{r}, IF({col_T}{r}="回補", B{r}, 0))'
-                # 空單單筆損益(V): (放空成本 - 回補價格) * 股數
-                ws_data[f'{col_V}{r}'] = f'=IF({col_T}{r}="回補", ({pS} - {col_U}{r}) * $B$6, 0)'
+                pr = r - 1
+                pW = f'{col_W}{pr}'
+                
+                if not is_short:
+                    # 多單動作(T)：前一日 Entry 為 TRUE 則今日買進；前一日 Exit 為 TRUE 則今日賣出
+                    ws_data[f'{col_T}{r}'] = f'=IF({col_R}{pr}=TRUE, "買進", IF({col_S}{pr}=TRUE, "賣出", ""))'
+                    # 交易價格(U)：買進或賣出時為當日開盤價，否則若前一日非賣出且有持倉價，則延續前一日交易價格
+                    ws_data[f'{col_U}{r}'] = f'=IF({col_T}{r}="買進", {col_C_open}{r}, IF({col_T}{r}="賣出", {col_C_open}{r}, IF({col_T}{pr}="賣出", 0, {col_U}{pr})))'
+                    # 多單單筆損益(V): (賣出價格 - 買進成本) * 股數
+                    ws_data[f'{col_V}{r}'] = f'=IF({col_T}{r}="賣出", ({col_U}{r} - {col_U}{pr}) * $B$6, 0)'
+                else:
+                    # 空單動作(T)：前一日 Entry 為 TRUE 則今日放空；前一日 Exit 為 TRUE 則今日回補
+                    ws_data[f'{col_T}{r}'] = f'=IF({col_R}{pr}=TRUE, "放空", IF({col_S}{pr}=TRUE, "回補", ""))'
+                    # 交易價格(U)：放空或回補時為當日開盤價，否則若前一日非回補且有持倉價，則延續前一日交易價格
+                    ws_data[f'{col_U}{r}'] = f'=IF({col_T}{r}="放空", {col_C_open}{r}, IF({col_T}{r}="回補", {col_C_open}{r}, IF({col_T}{pr}="回補", 0, {col_U}{pr})))'
+                    # 空單單筆損益(V): (放空成本 - 回補價格) * 股數
+                    ws_data[f'{col_V}{r}'] = f'=IF({col_T}{r}="回補", ({col_U}{pr} - {col_U}{r}) * $B$6, 0)'
 
-            # 累積損益(W)
-            ws_data[f'{col_W}{r}'] = f'={pW} + {col_V}{r}'
+                # 累積損益(W)
+                ws_data[f'{col_W}{r}'] = f'={pW} + {col_V}{r}'
 
             # 格式套用
             for col_letter in [col_R, col_S, col_T, col_U, col_V, col_W]:
