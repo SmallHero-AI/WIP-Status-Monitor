@@ -198,6 +198,27 @@ def main():
         r1 = clean_and_parse_series(df, c_r1)
         s1 = clean_and_parse_series(df, c_s1)
 
+        c_volume = find_column(df, ['成交量', '量', 'Volume', 'volume'])
+        vols = clean_and_parse_series(df, c_volume)
+
+        # 計算 ATR[14] - 向量化 (取代 Python for 迴圈，速度提升 ~100x)
+        prev_closes = np.roll(closes, 1); prev_closes[0] = closes[0]
+        tr = np.maximum(highs - lows, np.maximum(np.abs(highs - prev_closes), np.abs(lows - prev_closes)))
+        atr = pd.Series(tr).rolling(14).mean().values
+        atr = np.nan_to_num(atr, nan=tr[0] if n_rows > 0 else 0)
+
+        # 成交量 MA20 - 向量化
+        vol_ma20 = pd.Series(vols).rolling(20).mean().values
+        vol_ma20 = np.nan_to_num(vol_ma20, nan=vols[0] if len(vols) > 0 else 1)
+
+        # 真突破判定指標
+        f_volume_confirm = (vols > 1.5 * vol_ma20) & (vols > 0)
+        f_volume_confirm_short = (vols > 1.2 * vol_ma20) & (vols > 0)
+        f_candle_strength = (closes - lows) > 0.6 * (highs - lows)
+        f_candle_strength_short = (highs - closes) > 0.6 * (highs - lows)
+        f_trend_align = closes > ma60
+        f_trend_align_short = closes < ma60
+
         prev_k = np.roll(k, 1); prev_k[0] = k[0]
         prev_d = np.roll(d, 1); prev_d[0] = d[0]
         prev_macd = np.roll(macd, 1); prev_macd[0] = macd[0]
@@ -321,6 +342,19 @@ def main():
             fall_sharp = pd.Series(closes).pct_change(rise_len).values < -0.08
             f_inverted_v = f_inverted_v | (rise_steep & fall_sharp)
 
+        # 應用真突破判定條件 (量能、K線實體強度、趨勢方向)
+        f_w_bottom = f_w_bottom & f_volume_confirm & f_candle_strength & f_trend_align
+        f_hs_bottom = f_hs_bottom & f_volume_confirm & f_candle_strength & f_trend_align
+        f_v_rebound = f_v_rebound & f_volume_confirm & f_candle_strength & f_trend_align
+        f_triangle_breakout = f_triangle_breakout & f_volume_confirm & f_candle_strength & f_trend_align
+        f_box_breakout = f_box_breakout & f_volume_confirm & f_candle_strength & f_trend_align
+
+        f_m_top = f_m_top & f_volume_confirm_short & f_candle_strength_short & f_trend_align_short
+        f_hs_top = f_hs_top & f_volume_confirm_short & f_candle_strength_short & f_trend_align_short
+        f_inverted_v = f_inverted_v & f_volume_confirm_short & f_candle_strength_short & f_trend_align_short
+        f_triangle_breakdown = f_triangle_breakdown & f_volume_confirm_short & f_candle_strength_short & f_trend_align_short
+        f_box_breakdown = f_box_breakdown & f_volume_confirm_short & f_candle_strength_short & f_trend_align_short
+
         # ── 多單（Long）策略池 ──
         long_entries = [
             ("強勢均線多頭+KD金叉", f_ma_bull & f_kd_gold & f_above_ma20),
@@ -350,6 +384,7 @@ def main():
             ("三角收斂突破上軌加速 (多頭整理)", f_triangle_breakout),
             ("箱型整理突破阻力上限 (多頭整理)", f_box_breakout)
         ]
+
         long_exits = [
             ("6%停利 / 6%停損 (穩健勝率)", 0.06, 0.06, np.zeros(n_rows, dtype=bool)),
             ("8%停利 / 8%停損 (均衡配置)", 0.08, 0.08, np.zeros(n_rows, dtype=bool)),
@@ -359,7 +394,10 @@ def main():
             ("MACD紅柱縮短離場或6%停損", None, 0.06, f_macd_shrink),
             ("收盤跌破MA20或6%停損", None, 0.06, f_below_ma20),
             ("觸碰布林上軌停利或6%停損", None, 0.06, f_bb_overbought),
-            ("跌破樞軸支撐(S1)或8%停利", 0.08, None, f_below_s1)
+            ("跌破樞軸支撐(S1)或8%停利", 0.08, None, f_below_s1),
+            ("波段追蹤：關閉固定停利 + 跌破MA20下彎離場 (波段操作)", None, None, np.zeros(n_rows, dtype=bool)),
+            ("波段追蹤：ATR追蹤停損 (最高價拉回3*ATR離場)", None, None, np.zeros(n_rows, dtype=bool)),
+            ("波段追蹤：跌破前10日最低點停損 (波段操作)", None, None, np.zeros(n_rows, dtype=bool))
         ]
 
         # ── 空單（Short）策略平倉與方向條件 ──
@@ -418,8 +456,19 @@ def main():
             ("MACD綠柱縮短離場或6%停損", None, 0.06, f_macd_grow_cover),
             ("收盤站上MA20或6%停損", None, 0.06, f_above_ma20_cover),
             ("觸碰布林下軌停利或6%停損", None, 0.06, f_bb_oversold_cover),
-            ("突破壓力(R1)或8%停利", 0.08, None, f_above_r1_cover)
+            ("突破壓力(R1)或8%停利", 0.08, None, f_above_r1_cover),
+            ("波段追蹤：關閉固定停利 + 站上MA20上彎離場 (波段操作)", None, None, np.zeros(n_rows, dtype=bool)),
+            ("波段追蹤：ATR追蹤回補 (最低價拉回3*ATR離場)", None, None, np.zeros(n_rows, dtype=bool)),
+            ("波段追蹤：突破前10日最高點回補 (波段操作)", None, None, np.zeros(n_rows, dtype=bool))
         ]
+
+        # ── 預計算滾動窗口 (避免迴圈內重複切片) ──
+        rolling_low10  = pd.Series(lows).shift(1).rolling(10, min_periods=1).min().values
+        rolling_high10 = pd.Series(highs).shift(1).rolling(10, min_periods=1).max().values
+        ma20_prev = np.roll(ma20, 1); ma20_prev[0] = ma20[0]
+        # 波段追蹤：MA20 下彎離場訊號 (收盤跌破 MA20 且 MA20 本身向下)
+        wave_ma20_exit_long  = (closes < ma20) & (ma20 < ma20_prev)
+        wave_ma20_exit_short = (closes > ma20) & (ma20 > ma20_prev)
 
         # ── 1. 多單最佳策略矩陣回測 ──
         best_long_combo = None
@@ -433,7 +482,11 @@ def main():
         best_long_current_price = 0.0
         best_long_trades_list = []
 
+        print(f"  [Scan] {code} {name}", flush=True)
+
         for ent_name, ent_sig in long_entries:
+            if np.sum(ent_sig) < 5:  # 不可能達到 >= 5 次交易，跳過
+                continue
             for ext_name, tp, sl, ext_sig in long_exits:
                 shares = 1000
                 pnl = 0
@@ -445,11 +498,13 @@ def main():
                 max_capital = 0
                 temp_trades = []
 
+                highest_close_since_entry = 0
                 for i in range(1, n_rows - 1):
                     if not hold:
                         if ent_sig[i]:
                             hold = True
                             buy_price = opens[i+1]
+                            highest_close_since_entry = closes[i+1]
                             try:
                                 buy_date = str(int(float(df.iloc[i+1, 0])))
                             except Exception:
@@ -459,10 +514,22 @@ def main():
                     else:
                         next_open = opens[i+1]
                         trade_roi = (next_open - buy_price) / buy_price if buy_price > 0 else 0
+                        highest_close_since_entry = max(highest_close_since_entry, closes[i])
                         
                         cond_tp = (tp is not None) and (trade_roi >= tp)
                         cond_sl = (sl is not None) and (trade_roi <= -sl)
                         cond_signal = ext_sig[i]
+
+                        # Dynamic trailing stop exits for long (use pre-computed arrays)
+                        if ext_name == "波段追蹤：關閉固定停利 + 跌破MA20下彎離場 (波段操作)":
+                            cond_signal = bool(wave_ma20_exit_long[i])
+                            cond_sl = trade_roi <= -0.10
+                        elif ext_name == "波段追蹤：ATR追蹤停損 (最高價拉回3*ATR離場)":
+                            cond_signal = closes[i] < (highest_close_since_entry - 3 * atr[i])
+                            cond_sl = trade_roi <= -0.10
+                        elif ext_name == "波段追蹤：跌破前10日最低點停損 (波段操作)":
+                            cond_signal = closes[i] < rolling_low10[i]
+                            cond_sl = trade_roi <= -0.10
 
                         if cond_tp or cond_sl or cond_signal:
                             hold = False
@@ -522,6 +589,8 @@ def main():
         best_short_trades_list = []
 
         for ent_name, ent_sig in short_entries:
+            if np.sum(ent_sig) < 5:  # 不可能達到 >= 5 次交易，跳過
+                continue
             for ext_name, tp, sl, ext_sig in short_exits:
                 shares = 1000
                 pnl = 0
@@ -533,11 +602,13 @@ def main():
                 max_capital = 0
                 temp_trades = []
 
+                lowest_close_since_entry = 99999999
                 for i in range(1, n_rows - 1):
                     if not hold:
                         if ent_sig[i]:
                             hold = True
                             short_price = opens[i+1]
+                            lowest_close_since_entry = closes[i+1]
                             try:
                                 short_date = str(int(float(df.iloc[i+1, 0])))
                             except Exception:
@@ -547,10 +618,22 @@ def main():
                     else:
                         next_open = opens[i+1]
                         trade_roi = (short_price - next_open) / short_price if short_price > 0 else 0
+                        lowest_close_since_entry = min(lowest_close_since_entry, closes[i])
                         
                         cond_tp = (tp is not None) and (trade_roi >= tp)
                         cond_sl = (sl is not None) and (trade_roi <= -sl)
                         cond_signal = ext_sig[i]
+
+                        # Dynamic trailing stop exits for short (use pre-computed arrays)
+                        if ext_name == "波段追蹤：關閉固定停利 + 站上MA20上彎離場 (波段操作)":
+                            cond_signal = bool(wave_ma20_exit_short[i])
+                            cond_sl = trade_roi <= -0.10
+                        elif ext_name == "波段追蹤：ATR追蹤回補 (最低價拉回3*ATR離場)":
+                            cond_signal = closes[i] > (lowest_close_since_entry + 3 * atr[i])
+                            cond_sl = trade_roi <= -0.10
+                        elif ext_name == "波段追蹤：突破前10日最高點回補 (波段操作)":
+                            cond_signal = closes[i] > rolling_high10[i]
+                            cond_sl = trade_roi <= -0.10
 
                         if cond_tp or cond_sl or cond_signal:
                             hold = False
@@ -660,8 +743,8 @@ def main():
             success_count += 1
             print(f"  [SHORT SUCCESS] {code} {name:4s} | WinRate: {best_short_win_rate:5.1f}% | Profit: {best_short_pnl:+10,.0f} | Trades: {best_short_trades:3d} | Strategy: {best_short_combo} | Holding: {best_short_hold}")
 
-        if processed_count % 50 == 0:
-            print(f"[Progress] Processed {processed_count}/{total_files} stocks...")
+        if processed_count % 10 == 0:
+            print(f"[Progress] Processed {processed_count}/{total_files} stocks, found {success_count} so far...", flush=True)
 
     # 4. 寫入排行榜與交易歷史
     if leaderboard_data:

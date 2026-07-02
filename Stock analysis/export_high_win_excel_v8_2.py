@@ -92,6 +92,27 @@ def get_strategy_signals(df, ent_name, ext_name, is_short=False):
     r1 = clean_and_parse_series(df, c_r1)
     s1 = clean_and_parse_series(df, c_s1)
 
+    c_volume = find_column(df, ['成交量', '量', 'Volume', 'volume'])
+    vols = clean_and_parse_series(df, c_volume)
+
+    # 計算 ATR[14] - 向量化 (取代 Python for 迴圈，速度提升 ~100x)
+    prev_closes_e = np.roll(closes, 1); prev_closes_e[0] = closes[0]
+    tr = np.maximum(highs - lows, np.maximum(np.abs(highs - prev_closes_e), np.abs(lows - prev_closes_e)))
+    atr = pd.Series(tr).rolling(14).mean().values
+    atr = np.nan_to_num(atr, nan=tr[0] if n_rows > 0 else 0)
+
+    # 成交量 MA20 - 向量化
+    vol_ma20 = pd.Series(vols).rolling(20).mean().values
+    vol_ma20 = np.nan_to_num(vol_ma20, nan=vols[0] if len(vols) > 0 else 1)
+
+    # 真突破判定指標
+    f_volume_confirm = (vols > 1.5 * vol_ma20) & (vols > 0)
+    f_volume_confirm_short = (vols > 1.2 * vol_ma20) & (vols > 0)
+    f_candle_strength = (closes - lows) > 0.6 * (highs - lows)
+    f_candle_strength_short = (highs - closes) > 0.6 * (highs - lows)
+    f_trend_align = closes > ma60
+    f_trend_align_short = closes < ma60
+
     prev_k = np.roll(k, 1); prev_k[0] = k[0]
     prev_d = np.roll(d, 1); prev_d[0] = d[0]
     prev_macd = np.roll(macd, 1); prev_macd[0] = macd[0]
@@ -189,6 +210,23 @@ def get_strategy_signals(df, ent_name, ext_name, is_short=False):
         fall_sharp = pd.Series(closes).pct_change(rise_len).values < -0.08
         f_inverted_v = f_inverted_v | (rise_steep & fall_sharp)
 
+    # 應用真突破判定條件 (量能、K線實體強度、趨勢方向)
+    f_w_bottom = f_w_bottom & f_volume_confirm & f_candle_strength & f_trend_align
+    f_hs_bottom = f_hs_bottom & f_volume_confirm & f_candle_strength & f_trend_align
+    f_v_rebound = f_v_rebound & f_volume_confirm & f_candle_strength & f_trend_align
+    f_triangle_breakout = f_triangle_breakout & f_volume_confirm & f_candle_strength & f_trend_align
+    f_box_breakout = f_box_breakout & f_volume_confirm & f_candle_strength & f_trend_align
+
+    f_m_top = f_m_top & f_volume_confirm_short & f_candle_strength_short & f_trend_align_short
+    f_hs_top = f_hs_top & f_volume_confirm_short & f_candle_strength_short & f_trend_align_short
+    f_inverted_v = f_inverted_v & f_volume_confirm_short & f_candle_strength_short & f_trend_align_short
+    f_triangle_breakdown = f_triangle_breakdown & f_volume_confirm_short & f_candle_strength_short & f_trend_align_short
+    f_box_breakdown = f_box_breakdown & f_volume_confirm_short & f_candle_strength_short & f_trend_align_short
+
+    ent_sig_raw = np.zeros(n_rows, dtype=bool)
+    ext_sig_raw = np.zeros(n_rows, dtype=bool)
+    tp, sl = None, None
+
     if not is_short:
         # 多單買入/賣出訊號
         f_kd_gold = (k > d) & (prev_k <= prev_d)
@@ -216,48 +254,46 @@ def get_strategy_signals(df, ent_name, ext_name, is_short=False):
         f_below_s1 = (closes < s1) & (s1 > 0)
 
         # 匹配進場
-        ent_sig = np.zeros(n_rows, dtype=bool)
-        if ent_name == "強勢均線多頭+KD金叉": ent_sig = f_ma_bull & f_kd_gold & f_above_ma20
-        elif ent_name == "中長期多頭+RSI低檔轉強": ent_sig = f_above_ma60 & f_above_ma120 & (rsi < 45) & f_macd_grow
-        elif ent_name == "雙重均線突破+MACD翻紅": ent_sig = f_above_ma20 & f_above_ma60 & f_macd_positive & f_macd_grow
-        elif ent_name == "EOM動能突破+均線多頭": ent_sig = f_eom_bullish & f_ma_bull & f_above_ma20
-        elif ent_name == "極度超跌共振 (BIAS+RSI+MFI)": ent_sig = f_bias_oversold & f_rsi_oversold & f_mfi_oversold
-        elif ent_name == "布林通道下軌+KD低檔金叉": ent_sig = f_bb_oversold & f_kd_gold
-        elif ent_name == "CCI超賣+MFI超賣+KD金叉": ent_sig = f_cci_oversold & f_mfi_oversold & f_kd_gold
-        elif ent_name == "雙重超賣 (RSI+CCI)+MACD轉強": ent_sig = f_rsi_oversold & f_cci_oversold & f_macd_grow
-        elif ent_name == "樞軸點(S1)支撐+KD金叉": ent_sig = (closes > s1) & (low_vals <= s1) & f_kd_gold & (s1 > 0)
-        elif ent_name == "突破阻力(R1)+MACD多頭": ent_sig = f_break_r1 & f_macd_positive & f_above_ma20
-        elif ent_name == "突破樞軸(Pivot)+RSI轉強": ent_sig = f_above_pivot & f_rsi_bull & f_macd_grow
-        elif ent_name == "S1支撐不破+MACD紅柱增長": ent_sig = (closes > s1) & f_macd_grow & (s1 > 0)
-        elif ent_name == "多頭拉回：MA60之上+KD金叉+RSI<45": ent_sig = f_above_ma60 & f_kd_gold & (rsi < 45)
-        elif ent_name == "布林中軌支撐+MACD紅柱": ent_sig = (closes > bb_lower) & (closes < bb_upper) & f_above_ma20 & f_macd_grow
-        elif ent_name == "動能共振：EOM突破+MACD>0+RSI>50": ent_sig = f_eom_bullish & f_macd_positive & f_rsi_bull
-        elif ent_name == "雙保險超跌：BIAS超賣+布林下軌觸及": ent_sig = f_bias_oversold & f_bb_oversold
-        elif ent_name == "主力資金流入：MFI超賣+EOM突破": ent_sig = f_mfi_oversold & f_eom_bullish
-        elif ent_name == "壓力突破：價格>R1+EOM強勢+MACD>0": ent_sig = f_break_r1 & f_eom_bullish & f_macd_positive
-        elif ent_name == "長期均線支撐：站上MA120+KD金叉+CCI超賣": ent_sig = f_above_ma120 & f_kd_gold & f_cci_oversold
-        elif ent_name == "CCI超賣反彈+MACD紅柱增長": ent_sig = f_cci_oversold & f_macd_grow & f_above_ma20
-        # V8.2 新增型態策略
-        elif ent_name == "W底雙重底突破頸線 (多頭趨勢)": ent_sig = f_w_bottom
-        elif ent_name == "頭肩底突破頸線確立 (多頭趨勢)": ent_sig = f_hs_bottom
-        elif ent_name == "V型反轉爆量向上拉升 (多頭趨勢)": ent_sig = f_v_rebound
-        elif ent_name == "三角收斂突破上軌加速 (多頭整理)": ent_sig = f_triangle_breakout
-        elif ent_name == "箱型整理突破阻力上限 (多頭整理)": ent_sig = f_box_breakout
+        if ent_name == "強勢均線多頭+KD金叉": ent_sig_raw = f_ma_bull & f_kd_gold & f_above_ma20
+        elif ent_name == "中長期多頭+RSI低檔轉強": ent_sig_raw = f_above_ma60 & f_above_ma120 & (rsi < 45) & f_macd_grow
+        elif ent_name == "雙重均線突破+MACD翻紅": ent_sig_raw = f_above_ma20 & f_above_ma60 & f_macd_positive & f_macd_grow
+        elif ent_name == "EOM動能突破+均線多頭": ent_sig_raw = f_eom_bullish & f_ma_bull & f_above_ma20
+        elif ent_name == "極度超跌共振 (BIAS+RSI+MFI)": ent_sig_raw = f_bias_oversold & f_rsi_oversold & f_mfi_oversold
+        elif ent_name == "布林通道下軌+KD低檔金叉": ent_sig_raw = f_bb_oversold & f_kd_gold
+        elif ent_name == "CCI超賣+MFI超賣+KD金叉": ent_sig_raw = f_cci_oversold & f_mfi_oversold & f_kd_gold
+        elif ent_name == "雙重超賣 (RSI+CCI)+MACD轉強": ent_sig_raw = f_rsi_oversold & f_cci_oversold & f_macd_grow
+        elif ent_name == "樞軸點(S1)支撐+KD金叉": ent_sig_raw = (closes > s1) & (low_vals <= s1) & f_kd_gold & (s1 > 0)
+        elif ent_name == "突破阻力(R1)+MACD多頭": ent_sig_raw = f_break_r1 & f_macd_positive & f_above_ma20
+        elif ent_name == "突破樞軸(Pivot)+RSI轉強": ent_sig_raw = f_above_pivot & f_rsi_bull & f_macd_grow
+        elif ent_name == "S1支撐不破+MACD紅柱增長": ent_sig_raw = (closes > s1) & f_macd_grow & (s1 > 0)
+        elif ent_name == "多頭拉回：MA60之上+KD金叉+RSI<45": ent_sig_raw = f_above_ma60 & f_kd_gold & (rsi < 45)
+        elif ent_name == "布林中軌支撐+MACD紅柱": ent_sig_raw = (closes > bb_lower) & (closes < bb_upper) & f_above_ma20 & f_macd_grow
+        elif ent_name == "動能共振：EOM突破+MACD>0+RSI>50": ent_sig_raw = f_eom_bullish & f_macd_positive & f_rsi_bull
+        elif ent_name == "雙保險超跌：BIAS超賣+布林下軌觸及": ent_sig_raw = f_bias_oversold & f_bb_oversold
+        elif ent_name == "主力資金流入：MFI超賣+EOM突破": ent_sig_raw = f_mfi_oversold & f_eom_bullish
+        elif ent_name == "壓力突破：價格>R1+EOM強勢+MACD>0": ent_sig_raw = f_break_r1 & f_eom_bullish & f_macd_positive
+        elif ent_name == "長期均線支撐：站上MA120+KD金叉+CCI超賣": ent_sig_raw = f_above_ma120 & f_kd_gold & f_cci_oversold
+        elif ent_name == "CCI超賣反彈+MACD紅柱增長": ent_sig_raw = f_cci_oversold & f_macd_grow & f_above_ma20
+        elif ent_name == "W底雙重底突破頸線 (多頭趨勢)": ent_sig_raw = f_w_bottom
+        elif ent_name == "頭肩底突破頸線確立 (多頭趨勢)": ent_sig_raw = f_hs_bottom
+        elif ent_name == "V型反轉爆量向上拉升 (多頭趨勢)": ent_sig_raw = f_v_rebound
+        elif ent_name == "三角收斂突破上軌加速 (多頭整理)": ent_sig_raw = f_triangle_breakout
+        elif ent_name == "箱型整理突破阻力上限 (多頭整理)": ent_sig_raw = f_box_breakout
 
         # 匹配出場
-        tp, sl = None, None
-        ext_sig = np.zeros(n_rows, dtype=bool)
         if ext_name == "6%停利 / 6%停損 (穩健勝率)": tp, sl = 0.06, 0.06
         elif ext_name == "8%停利 / 8%停損 (均衡配置)": tp, sl = 0.08, 0.08
         elif ext_name == "12%停利 / 6%停損 (高盈虧比)": tp, sl = 0.12, 0.06
-        elif ext_name == "KD死叉離場或6%停損": sl, ext_sig = 0.06, f_kd_dead
-        elif ext_name == "RSI超買離場或6%停損": sl, ext_sig = 0.06, f_rsi_overbought
-        elif ext_name == "MACD紅柱縮短離場或6%停損": sl, ext_sig = 0.06, f_macd_shrink
-        elif ext_name == "收盤跌破MA20或6%停損": sl, ext_sig = 0.06, f_below_ma20
-        elif ext_name == "觸碰布林上軌停利或6%停損": sl, ext_sig = 0.06, f_bb_overbought
-        elif ext_name == "跌破樞軸支撐(S1)或8%停利": tp, ext_sig = 0.08, f_below_s1
-
-        return ent_sig, ext_sig, tp, sl
+        elif ext_name == "KD死叉離場或6%停損": sl, ext_sig_raw = 0.06, f_kd_dead
+        elif ext_name == "RSI超買離場或6%停損": sl, ext_sig_raw = 0.06, f_rsi_overbought
+        elif ext_name == "MACD紅柱縮短離場或6%停損": sl, ext_sig_raw = 0.06, f_macd_shrink
+        elif ext_name == "收盤跌破MA20或6%停損": sl, ext_sig_raw = 0.06, f_below_ma20
+        elif ext_name == "觸碰布林上軌停利或6%停損": sl, ext_sig_raw = 0.06, f_bb_overbought
+        elif ext_name == "跌破樞軸支撐(S1)或8%停利": tp, ext_sig_raw = 0.08, f_below_s1
+        # 波段離場
+        elif ext_name == "波段追蹤：關閉固定停利 + 跌破MA20下彎離場 (波段操作)": pass
+        elif ext_name == "波段追蹤：ATR追蹤停損 (最高價拉回3*ATR離場)": pass
+        elif ext_name == "波段追蹤：跌破前10日最低點停損 (波段操作)": pass
     else:
         # 空單放空/回補訊號
         f_ma_bear = (ma5 < ma20) & (ma20 < ma60)
@@ -268,7 +304,7 @@ def get_strategy_signals(df, ent_name, ext_name, is_short=False):
         f_eom_bearish = eom < eom_sig
         f_mfi_overbought = mfi > 70
         f_bb_overbought_short = (closes > bb_upper) & (bb_upper > 0)
-        
+
         f_kd_dead = (k < d) & (prev_k >= prev_d)
         f_rsi_overbought = rsi > 65
         f_macd_shrink = macd < prev_macd
@@ -284,48 +320,107 @@ def get_strategy_signals(df, ent_name, ext_name, is_short=False):
         f_above_r1_cover = (closes > r1) & (r1 > 0)
 
         # 匹配進場 (空單)
-        ent_sig = np.zeros(n_rows, dtype=bool)
-        if ent_name == "弱勢均線空頭+KD死叉": ent_sig = f_ma_bear & f_kd_dead & f_below_ma20
-        elif ent_name == "中長期空頭+RSI高檔轉弱": ent_sig = f_below_ma60 & f_below_ma120 & (rsi > 55) & f_macd_shrink
-        elif ent_name == "雙重均線跌破+MACD翻綠": ent_sig = f_below_ma20 & f_below_ma60 & (macd < 0) & f_macd_shrink
-        elif ent_name == "EOM動能下跌+均線空頭": ent_sig = f_eom_bearish & f_ma_bear & f_below_ma20
-        elif ent_name == "極度超買共振 (BIAS+RSI+MFI)": ent_sig = f_bias_overbought & f_rsi_overbought & f_mfi_overbought
-        elif ent_name == "布林通道上軌+KD高檔死叉": ent_sig = f_bb_overbought_short & f_kd_dead
-        elif ent_name == "CCI超買+MFI超買+KD死叉": ent_sig = f_cci_overbought & f_mfi_overbought & f_kd_dead
-        elif ent_name == "雙重超買 (RSI+CCI)+MACD轉弱": ent_sig = f_rsi_overbought & f_cci_overbought & f_macd_shrink
-        elif ent_name == "樞軸點(R1)壓力+KD死叉": ent_sig = (closes < r1) & (high_vals >= r1) & f_kd_dead & (r1 > 0)
-        elif ent_name == "跌破支撐(S1)+MACD空頭": ent_sig = f_break_s1 & (macd < 0) & f_below_ma20
-        elif ent_name == "跌破樞軸(Pivot)+RSI轉弱": ent_sig = f_below_pivot & (rsi < 50) & f_macd_shrink
-        elif ent_name == "R1壓力不破+MACD綠柱增長": ent_sig = (closes < r1) & f_macd_shrink & (r1 > 0)
-        elif ent_name == "空頭拉回：MA60之下+KD死叉+RSI>55": ent_sig = f_below_ma60 & f_kd_dead & (rsi > 55)
-        elif ent_name == "布林中軌阻力+MACD綠柱": ent_sig = (closes > bb_lower) & (closes < bb_upper) & f_below_ma20 & f_macd_shrink
-        elif ent_name == "動能共振：EOM下跌+MACD<0+RSI<50": ent_sig = f_eom_bearish & (macd < 0) & (rsi < 50)
-        elif ent_name == "雙保險超買：BIAS超買+布林上軌觸及": ent_sig = f_bias_overbought & f_bb_overbought_short
-        elif ent_name == "主力資金流出：MFI超買+EOM下跌": ent_sig = f_mfi_overbought & f_eom_bearish
-        elif ent_name == "支撐跌破：價格<S1+EOM弱勢+MACD<0": ent_sig = f_break_s1 & f_eom_bearish & (macd < 0)
-        elif ent_name == "長期均線阻力：跌破MA120+KD死叉+CCI超買": ent_sig = (closes < ma120) & f_kd_dead & f_cci_overbought
-        elif ent_name == "CCI超買回檔+MACD綠柱增長": ent_sig = f_cci_overbought & f_macd_shrink & f_below_ma20
-        # V8.2 新增型態策略
-        elif ent_name == "M頭雙重頂跌破頸線 (空頭趨勢)": ent_sig = f_m_top
-        elif ent_name == "頭肩頂跌破頸線反轉 (空頭趨勢)": ent_sig = f_hs_top
-        elif ent_name == "倒V型反轉急速暴跌 (空頭趨勢)": ent_sig = f_inverted_v
-        elif ent_name == "三角收斂跌破下軌加速 (空頭整理)": ent_sig = f_triangle_breakdown
-        elif ent_name == "箱型整理跌破支撐下限 (空頭整理)": ent_sig = f_box_breakdown
+        if ent_name == "弱勢均線空頭+KD死叉": ent_sig_raw = f_ma_bear & f_kd_dead & f_below_ma20
+        elif ent_name == "中長期空頭+RSI高檔轉弱": ent_sig_raw = f_below_ma60 & f_below_ma120 & (rsi > 55) & f_macd_shrink
+        elif ent_name == "雙重均線跌破+MACD翻綠": ent_sig_raw = f_below_ma20 & f_below_ma60 & (macd < 0) & f_macd_shrink
+        elif ent_name == "EOM動能下跌+均線空頭": ent_sig_raw = f_eom_bearish & f_ma_bear & f_below_ma20
+        elif ent_name == "極度超買共振 (BIAS+RSI+MFI)": ent_sig_raw = f_bias_overbought & f_rsi_overbought & f_mfi_overbought
+        elif ent_name == "布林通道上軌+KD高檔死叉": ent_sig_raw = f_bb_overbought_short & f_kd_dead
+        elif ent_name == "CCI超買+MFI超買+KD死叉": ent_sig_raw = f_cci_overbought & f_mfi_overbought & f_kd_dead
+        elif ent_name == "雙重超買 (RSI+CCI)+MACD轉弱": ent_sig_raw = f_rsi_overbought & f_cci_overbought & f_macd_shrink
+        elif ent_name == "樞軸點(R1)壓力+KD死叉": ent_sig_raw = (closes < r1) & (high_vals >= r1) & f_kd_dead & (r1 > 0)
+        elif ent_name == "跌破支撐(S1)+MACD空頭": ent_sig_raw = f_break_s1 & (macd < 0) & f_below_ma20
+        elif ent_name == "跌破樞軸(Pivot)+RSI轉弱": ent_sig_raw = f_below_pivot & (rsi < 50) & f_macd_shrink
+        elif ent_name == "R1壓力不破+MACD綠柱增長": ent_sig_raw = (closes < r1) & f_macd_shrink & (r1 > 0)
+        elif ent_name == "空頭拉回：MA60之下+KD死叉+RSI>55": ent_sig_raw = f_below_ma60 & f_kd_dead & (rsi > 55)
+        elif ent_name == "布林中軌阻力+MACD綠柱": ent_sig_raw = (closes > bb_lower) & (closes < bb_upper) & f_below_ma20 & f_macd_shrink
+        elif ent_name == "動能共振：EOM下跌+MACD<0+RSI<50": ent_sig_raw = f_eom_bearish & (macd < 0) & (rsi < 50)
+        elif ent_name == "雙保險超買：BIAS超買+布林上軌觸及": ent_sig_raw = f_bias_overbought & f_bb_overbought_short
+        elif ent_name == "主力資金流出：MFI超買+EOM下跌": ent_sig_raw = f_mfi_overbought & f_eom_bearish
+        elif ent_name == "支撐跌破：價格<S1+EOM弱勢+MACD<0": ent_sig_raw = f_break_s1 & f_eom_bearish & (macd < 0)
+        elif ent_name == "長期均線阻力：跌破MA120+KD死叉+CCI超買": ent_sig_raw = (closes < ma120) & f_kd_dead & f_cci_overbought
+        elif ent_name == "CCI超買回檔+MACD綠柱增長": ent_sig_raw = f_cci_overbought & f_macd_shrink & f_below_ma20
+        elif ent_name == "M頭雙重頂跌破頸線 (空頭趨勢)": ent_sig_raw = f_m_top
+        elif ent_name == "頭肩頂跌破頸線反轉 (空頭趨勢)": ent_sig_raw = f_hs_top
+        elif ent_name == "倒V型反轉急速暴跌 (空頭趨勢)": ent_sig_raw = f_inverted_v
+        elif ent_name == "三角收斂跌破下軌加速 (空頭整理)": ent_sig_raw = f_triangle_breakdown
+        elif ent_name == "箱型整理跌破支撐下限 (空頭整理)": ent_sig_raw = f_box_breakdown
 
         # 匹配出場 (空單)
-        tp, sl = None, None
-        ext_sig = np.zeros(n_rows, dtype=bool)
         if ext_name == "6%停利 / 6%停損 (穩健勝率)": tp, sl = 0.06, 0.06
         elif ext_name == "8%停利 / 8%停損 (均衡配置)": tp, sl = 0.08, 0.08
         elif ext_name == "12%停利 / 6%停損 (高盈虧比)": tp, sl = 0.12, 0.06
-        elif ext_name == "KD金叉離場或6%停損": sl, ext_sig = 0.06, f_kd_gold_cover
-        elif ext_name == "RSI超賣離場或6%停損": sl, ext_sig = 0.06, f_rsi_oversold_cover
-        elif ext_name == "MACD綠柱縮短離場或6%停損": sl, ext_sig = 0.06, f_macd_grow_cover
-        elif ext_name == "收盤站上MA20或6%停損": sl, ext_sig = 0.06, f_above_ma20_cover
-        elif ext_name == "觸碰布林下軌停利或6%停損": sl, ext_sig = 0.06, f_bb_oversold_cover
-        elif ext_name == "突破壓力(R1)或8%停利": tp, ext_sig = 0.08, f_above_r1_cover
+        elif ext_name == "KD金叉離場或6%停損": sl, ext_sig_raw = 0.06, f_kd_gold_cover
+        elif ext_name == "RSI超賣離場或6%停損": sl, ext_sig_raw = 0.06, f_rsi_oversold_cover
+        elif ext_name == "MACD綠柱縮短離場或6%停損": sl, ext_sig_raw = 0.06, f_macd_grow_cover
+        elif ext_name == "收盤站上MA20或6%停損": sl, ext_sig_raw = 0.06, f_above_ma20_cover
+        elif ext_name == "觸碰布林下軌停利或6%停損": sl, ext_sig_raw = 0.06, f_bb_oversold_cover
+        elif ext_name == "突破壓力(R1)或8%停利": tp, ext_sig_raw = 0.08, f_above_r1_cover
+        # 波段離場 (空單)
+        elif ext_name == "波段追蹤：關閉固定停利 + 站上MA20上彎離場 (波段操作)": pass
+        elif ext_name == "波段追蹤：ATR追蹤回補 (最低價拉回3*ATR離場)": pass
+        elif ext_name == "波段追蹤：突破前10日最高點回補 (波段操作)": pass
 
-        return ent_sig, ext_sig, tp, sl
+    # 執行回測狀態機以取得精確的進出場訊號
+    ent_sig = np.zeros(n_rows, dtype=bool)
+    ext_sig = np.zeros(n_rows, dtype=bool)
+    
+    hold = False
+    buy_price = 0
+    highest_close_since_entry = 0
+    lowest_close_since_entry = 99999999
+
+    for i in range(1, n_rows - 1):
+        if not hold:
+            if ent_sig_raw[i]:
+                hold = True
+                buy_price = opens[i+1]
+                highest_close_since_entry = closes[i+1]
+                lowest_close_since_entry = closes[i+1]
+                ent_sig[i] = True
+        else:
+            next_open = opens[i+1]
+            trade_roi = (next_open - buy_price) / buy_price if buy_price > 0 else 0
+            if is_short:
+                trade_roi = -trade_roi
+                lowest_close_since_entry = min(lowest_close_since_entry, closes[i])
+            else:
+                highest_close_since_entry = max(highest_close_since_entry, closes[i])
+                
+            cond_tp = (tp is not None) and (trade_roi >= tp)
+            cond_sl = (sl is not None) and (trade_roi <= -sl)
+            cond_signal = ext_sig_raw[i]
+
+            # 動態離場條件判定
+            if not is_short:
+                if ext_name == "波段追蹤：關閉固定停利 + 跌破MA20下彎離場 (波段操作)":
+                    cond_signal = (closes[i] < ma20[i]) and (ma20[i] < ma20[i-1] if i > 0 else True)
+                    cond_sl = trade_roi <= -0.10
+                elif ext_name == "波段追蹤：ATR追蹤停損 (最高價拉回3*ATR離場)":
+                    cond_signal = closes[i] < (highest_close_since_entry - 3 * atr[i])
+                    cond_sl = trade_roi <= -0.10
+                elif ext_name == "波段追蹤：跌破前10日最低點停損 (波段操作)":
+                    recent_low = min(lows[max(0, i-10):i]) if i > 0 else lows[0]
+                    cond_signal = closes[i] < recent_low
+                    cond_sl = trade_roi <= -0.10
+            else:
+                if ext_name == "波段追蹤：關閉固定停利 + 站上MA20上彎離場 (波段操作)":
+                    cond_signal = (closes[i] > ma20[i]) and (ma20[i] > ma20[i-1] if i > 0 else True)
+                    cond_sl = trade_roi <= -0.10
+                elif ext_name == "波段追蹤：ATR追蹤回補 (最低價拉回3*ATR離場)":
+                    cond_signal = closes[i] > (lowest_close_since_entry + 3 * atr[i])
+                    cond_sl = trade_roi <= -0.10
+                elif ext_name == "波段追蹤：突破前10日最高點回補 (波段操作)":
+                    recent_high = max(highs[max(0, i-10):i]) if i > 0 else highs[0]
+                    cond_signal = closes[i] > recent_high
+                    cond_sl = trade_roi <= -0.10
+
+            if cond_tp or cond_sl or cond_signal:
+                hold = False
+                ext_sig[i] = True
+                buy_price = 0
+
+    return ent_sig, ext_sig, tp, sl
 
 def main():
     print("=" * 60)
