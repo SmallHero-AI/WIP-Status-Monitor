@@ -671,7 +671,7 @@ def main():
                 ws.column_dimensions[col_letter].width = max(max_len + 3, 12)
 
         # 儲存 Excel 到 2 個位置 (一個給使用者，一個給網頁伺服器)
-        excel_name = f"{code}_{name}_AI_v8_2_高勝率回測.xlsx"
+        excel_name = f"{code}_AI_v8_2.xlsx"
         user_out_path = os.path.join(SCRIPT_DIR, excel_name)
         server_out_path = os.path.join(SERVER_DATA_DIR, excel_name)
         

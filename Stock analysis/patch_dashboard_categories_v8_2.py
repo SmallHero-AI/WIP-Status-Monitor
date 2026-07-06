@@ -100,14 +100,14 @@ def main():
             'id': f's{code}_ai',
             'name': name,
             'strategy': strat_cat,
-            'filename': f'{code}_{name}_AI_v8_2_高勝率回測.xlsx',
+            'filename': f'{code}_AI_v8_2.xlsx',
             'entry': entry,
             'exit': exit_cond,
             'tp': tp,
             'sl': sl,
             'type': strategy_type
         })
-        new_xlsx[f's{code}_ai'] = f'{code}_{name}_AI_v8_2_高勝率回測.xlsx'
+        new_xlsx[f's{code}_ai'] = f'{code}_AI_v8_2.xlsx'
 
     # 原本的 12 支預設個股 (均為 long)
     base_stocks = [
