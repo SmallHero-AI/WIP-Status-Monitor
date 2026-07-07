@@ -563,36 +563,51 @@ def main():
         # Sheet 2: 詳細交易數據與公式
         ws_data = wb.create_sheet(title="每日收盤與回測公式")
 
-        # 寫入 DataFrame 基本資訊
-        base_cols = ["日期", "收盤價", "開盤價", "最高價", "最低價"]
-        df_cols_present = [find_column(df, [bc]) for bc in base_cols]
-        df_cols_present = [c for c in df_cols_present if c is not None]
+        # ── 使用「完整欄位」格式，與 parseData JS 函數對應 ──
+        # parseData 期待欄位順序:
+        #  r[0]=date, r[1]=open, r[2]=high, r[3]=low, r[4]=close,
+        #  r[6]=ma5,  r[7]=ma20, r[8]=ma60, r[9]=ma120,
+        #  r[10]=eom, r[11]=eomSig, r[12]=mfi, r[13]=macdSig, r[14]=macd,
+        #  r[15]=k, r[16]=d, r[17]=rsi, r[18]=rsiSig, r[19]=bias5, r[20]=bias10,
+        #  r[21]=bias20, r[22]=cci, r[23]=cciSig,
+        #  r[24]=bb_upper, r[25]=bb_mid, r[26]=bb_lower, r[27]=S,
+        #  r[28]=Pivot, r[29]=R1, r[30]=S1, r[31]=R2, r[32]=S2
+        # 進出場訊號欄位從 r[33] 開始
 
-        # 如果找不到足夠欄位，使用前 5 欄
-        if len(df_cols_present) < 2:
-            df_cols_present = list(df.columns[:5])
+        # 按固定順序取出所有 CSV 欄位 (col[0..32])
+        all_df_cols = list(df.columns)  # 原始 CSV 已含日期+全部技術指標
 
-        # 寫入欄位標頭
-        headers_data = df_cols_present + ["進場訊號 (Entry)", "出場訊號 (Exit)", "動作訊號 (Action)", "交易價格 (Price)", "單筆損益 (TWD)", "累積損益 (TWD)"]
+        # 寫入欄位標頭 (全部原始 CSV 欄位 + 進出場訊號)
+        headers_data = all_df_cols + ["進場訊號 (Entry)", "出場訊號 (Exit)", "動作訊號 (Action)", "交易價格 (Price)", "單筆損益 (TWD)", "累積損益 (TWD)"]
         for idx, h in enumerate(headers_data, 1):
             cell = ws_data.cell(row=8, column=idx, value=h)
             cell.fill = header_fill
             cell.font = title_font
             cell.alignment = center_align
 
-        # 寫入每日收盤明細
-        for r_idx, row in df[df_cols_present].iterrows():
+        # 寫入每日完整欄位數據
+        for r_idx, row in df.iterrows():
             excel_row = r_idx + 9
-            for c_idx, col_name in enumerate(df_cols_present, 1):
-                ws_data.cell(row=excel_row, column=c_idx, value=row[col_name]).font = normal_font
+            for c_idx, col_name in enumerate(all_df_cols, 1):
+                val = row[col_name]
+                try:
+                    val = float(val) if val is not None and str(val) not in ('nan', 'None', '') else None
+                except (ValueError, TypeError):
+                    pass
+                ws_data.cell(row=excel_row, column=c_idx, value=val).font = normal_font
 
-        # 寫入動態公式 (Excel Column Letters)
-        col_R = get_column_letter(len(df_cols_present) + 1) # Entry
-        col_S = get_column_letter(len(df_cols_present) + 2) # Exit
-        col_T = get_column_letter(len(df_cols_present) + 3) # Action
-        col_U = get_column_letter(len(df_cols_present) + 4) # Price
-        col_V = get_column_letter(len(df_cols_present) + 5) # Profit
-        col_W = get_column_letter(len(df_cols_present) + 6) # CumProfit
+        # 進出場訊號欄從第 len(all_df_cols)+1 欄開始
+        n_base_cols = len(all_df_cols)
+        col_R = get_column_letter(n_base_cols + 1) # Entry
+        col_S = get_column_letter(n_base_cols + 2) # Exit
+        col_T = get_column_letter(n_base_cols + 3) # Action
+        col_U = get_column_letter(n_base_cols + 4) # Price
+        col_V = get_column_letter(n_base_cols + 5) # Profit
+        col_W = get_column_letter(n_base_cols + 6) # CumProfit
+
+        # 找出「開盤價」欄位用於計算交易價格公式
+        # 根據 CSV 結構: col[1]=開盤, col[0]=日期
+        df_cols_present = all_df_cols  # 保持向後相容
 
         # 寫入全域變數引用 (放第一列/第二列作為參數)
         ws_data['A1'] = "個股交易回測明細"
@@ -613,12 +628,12 @@ def main():
         for cell_ref in ['B3', 'B4', 'B5', 'B6']:
             ws_data[cell_ref].font = normal_font
 
-        # 找出「開盤價」在 df_cols_present 中的 index
-        c_open_col_idx = 3
+        # 找出「開盤價」在 all_df_cols 中的欄位字母 (用於公式中的開盤價參考)
+        c_open_col_idx = 2  # 預設: col[1]=開盤 -> Excel col B
         try:
-            c_open_actual = find_column(df, ["開盤價", "開盤", "Open", "open"])
-            if c_open_actual in df_cols_present:
-                c_open_col_idx = df_cols_present.index(c_open_actual) + 1
+            c_open_actual = find_column(df, ["開盤", "open", "開盤價"])
+            if c_open_actual and c_open_actual in all_df_cols:
+                c_open_col_idx = all_df_cols.index(c_open_actual) + 1
         except Exception:
             pass
         col_C_open = get_column_letter(c_open_col_idx)
