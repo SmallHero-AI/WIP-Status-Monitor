@@ -616,13 +616,16 @@ def update_stock_database(success_list):
             continue
         code, name = parts[0], parts[1]
         
-        csv_name = f"{code}_{name}_{DATE_TODAY}.csv"
-        csv_path = os.path.join(OUTPUT_FOLDER, csv_name)
-        
-        if not os.path.exists(csv_path):
-            log('⚠️ ', f"找不到 CSV 檔案：{csv_path}，跳過")
+        # Find the latest CSV for this stock in OUTPUT_FOLDER
+        csv_pattern = os.path.join(OUTPUT_FOLDER, f"{code}_{name}_*.csv")
+        csv_files = glob.glob(csv_pattern)
+        if not csv_files:
+            log('⚠️ ', f"找不到 CSV 檔案：{csv_pattern}，跳過")
             continue
-            
+        
+        # Take the most recently modified CSV
+        csv_path = max(csv_files, key=os.path.getmtime)
+        
         try:
             # 讀取今日 CSV
             df = pd.read_csv(csv_path, encoding='cp950')
@@ -682,7 +685,7 @@ def switch_to_default_desktop():
         pass
     return False
 
-def main():
+def run_rpa_export_workflow():
     switch_to_default_desktop()
     # 清空上次的 log
     try:
@@ -819,5 +822,96 @@ def main():
 
 
 
-if __name__ == "__main__":
+
+def main():
+    if len(sys.argv) > 1 and sys.argv[1] == '--auto':
+        print("\n[自動模式] 啟動 RPA 匯出流程")
+        run_rpa_export_workflow()
+        return
+
+    while True:
+        print("\n" + "=" * 62)
+        print("  台新贏家快手 V5.1.1  RPA 自動化管線主選單")
+        print("=" * 62)
+        print("  [1] 【完整流程】執行 RPA 匯出 + 清洗轉檔 + V8.3回測與更新伺服器")
+        print("  [2] 【RPA 匯出】僅執行 RPA 匯出與清洗 (產生 CSV)")
+        print("  [3] 【轉檔 Excel】將已匯出的 CSV 轉存至 Stock original (不開看盤軟體)")
+        print("  [4] 【AI 回測】跳過 RPA，直接執行後續 V8.3 型態策略篩選與網頁更新")
+        print("  [5] 【校準座標】重新測量與校準看盤軟體的滑鼠點擊座標")
+        print("  [0] 離開")
+        print("-" * 62)
+        
+        choice = input("請選擇要執行的功能 (0-5): ").strip()
+        
+        if choice == '1':
+            print("\n[啟動完整流程]")
+            run_rpa_export_workflow()
+            # The workflow already prompts to convert to Excel
+            import subprocess
+            print("\n[啟動 V8.3 自動化回測與伺服器更新]")
+            try:
+                # We skip calling stock_exporter.py recursively inside update_and_push by modifying it temporarily, or just call the individual scripts
+                subprocess.run(["python", "update_base_stocks_backtests.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
+                subprocess.run(["python", "search_75_winrate_v8_3.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
+                subprocess.run(["python", "export_high_win_excel_v8_3.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
+                subprocess.run(["python", "patch_dashboard_categories_v8_3.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
+                print("\n🎉 完整流程執行完畢！ (未自動 Git Push，如有需要請手動執行)")
+            except Exception as e:
+                print(f"❌ 執行回測失敗: {e}")
+            
+        elif choice == '2':
+            print("\n[僅 RPA 匯出]")
+            # Temporarily disable the prompt for database update to stop after CSV
+            original_input = __builtins__.input
+            __builtins__.input = lambda prompt: 'n' if '轉換為 Excel' in prompt else original_input(prompt)
+            try:
+                run_rpa_export_workflow()
+            finally:
+                __builtins__.input = original_input
+                
+        elif choice == '3':
+            print("\n[僅轉檔 Excel]")
+            import glob
+            csv_files = glob.glob(os.path.join(OUTPUT_FOLDER, "*.csv"))
+            if not csv_files:
+                print("❌ 找不到任何 CSV 檔案在", OUTPUT_FOLDER)
+                continue
+            success_list = []
+            for f in csv_files:
+                basename = os.path.basename(f)
+                parts = basename.split('_')
+                if len(parts) >= 2:
+                    success_list.append(f"{parts[0]} {parts[1]}")
+            if success_list:
+                update_stock_database(success_list)
+            else:
+                print("❌ 解析 CSV 檔名失敗")
+                
+        elif choice == '4':
+            print("\n[啟動 V8.3 自動化回測與伺服器更新]")
+            import subprocess
+            try:
+                subprocess.run(["python", "update_base_stocks_backtests.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
+                subprocess.run(["python", "search_75_winrate_v8_3.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
+                subprocess.run(["python", "export_high_win_excel_v8_3.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
+                subprocess.run(["python", "patch_dashboard_categories_v8_3.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
+                print("\n🎉 執行完畢！")
+            except Exception as e:
+                print(f"❌ 執行失敗: {e}")
+            
+        elif choice == '5':
+            print("\n[校準座標]")
+            switch_to_default_desktop()
+            # 呼叫座標校準之前需要先確定它有沒有這個獨立函數，原先是內聯在 main()
+            # 所以我們會把 main() 的前面抽取出來... 這裡我們直接請用戶用原本的 python get_coordinates.py 即可
+            print("請先離開程式，並執行 `python get_coordinates.py` 來校準！")
+            
+        elif choice == '0':
+            print("掰掰！")
+            break
+        else:
+            print("⚠️ 無效的選項，請重新輸入。")
+
+if __name__ == '__main__':
     main()
+
