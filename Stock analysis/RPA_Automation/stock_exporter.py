@@ -833,10 +833,10 @@ def main():
         print("\n" + "=" * 62)
         print("  台新贏家快手 V5.1.1  RPA 自動化管線主選單")
         print("=" * 62)
-        print("  [1] 【完整流程】執行 RPA 匯出 + 清洗轉檔 + V8.3回測與更新伺服器")
+        print("  [1] 【完整流程】執行 RPA 匯出 + 清洗轉檔 + V8.4回測與更新伺服器")
         print("  [2] 【RPA 匯出】僅執行 RPA 匯出與清洗 (產生 CSV)")
         print("  [3] 【轉檔 Excel】將已匯出的 CSV 轉存至 Stock original (不開看盤軟體)")
-        print("  [4] 【AI 回測】跳過 RPA，直接執行後續 V8.3 型態策略篩選與網頁更新")
+        print("  [4] 【AI 回測】跳過 RPA，直接執行後續 V8.4 型態策略篩選與網頁更新")
         print("  [5] 【校準座標】重新測量與校準看盤軟體的滑鼠點擊座標")
         print("  [0] 離開")
         print("-" * 62)
@@ -848,13 +848,13 @@ def main():
             run_rpa_export_workflow()
             # The workflow already prompts to convert to Excel
             import subprocess
-            print("\n[啟動 V8.3 自動化回測與伺服器更新]")
+            print("\n[啟動 V8.4 自動化回測與伺服器更新]")
             try:
                 # We skip calling stock_exporter.py recursively inside update_and_push by modifying it temporarily, or just call the individual scripts
                 subprocess.run(["python", "update_base_stocks_backtests.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
-                subprocess.run(["python", "search_75_winrate_v8_3.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
-                subprocess.run(["python", "export_high_win_excel_v8_3.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
-                subprocess.run(["python", "patch_dashboard_categories_v8_3.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
+                subprocess.run(["python", "search_75_winrate_v8_4.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
+                subprocess.run(["python", "export_high_win_excel_v8_4.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
+                subprocess.run(["python", "patch_dashboard_categories_v8_4.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
                 print("\n🎉 完整流程執行完畢！ (未自動 Git Push，如有需要請手動執行)")
             except Exception as e:
                 print(f"❌ 執行回測失敗: {e}")
@@ -888,13 +888,13 @@ def main():
                 print("❌ 解析 CSV 檔名失敗")
                 
         elif choice == '4':
-            print("\n[啟動 V8.3 自動化回測與伺服器更新]")
+            print("\n[啟動 V8.4 自動化回測與伺服器更新]")
             import subprocess
             try:
                 subprocess.run(["python", "update_base_stocks_backtests.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
-                subprocess.run(["python", "search_75_winrate_v8_3.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
-                subprocess.run(["python", "export_high_win_excel_v8_3.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
-                subprocess.run(["python", "patch_dashboard_categories_v8_3.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
+                subprocess.run(["python", "search_75_winrate_v8_4.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
+                subprocess.run(["python", "export_high_win_excel_v8_4.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
+                subprocess.run(["python", "patch_dashboard_categories_v8_4.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
                 print("\n🎉 執行完畢！")
             except Exception as e:
                 print(f"❌ 執行失敗: {e}")
