@@ -20,3 +20,21 @@
    - **新增策略時**：需確保回測腳本中的策略清單 (`long_entry_names`, `short_entry_names` 等) 與匯出腳本中的買賣訊號判斷邏輯 **100% 完全對齊**。
 
 此 SOP 為強制規範，任何 AI 代理在處理 `Stock analysis` 相關任務時都必須優先閱讀並遵守。
+
+## Agent skills
+
+### Issue tracker
+
+Issues and PRDs for this repo live as GitHub issues. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The default canonical roles (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`) are used. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context repository layout. See `docs/agents/domain.md`.
+
+## Agent Behavior Rules
+
+- **Implementation Plan Language**: 所有提供的 Implementation Plan (包含技術實作草稿或規劃) 都必須強制使用**繁體中文 (Traditional Chinese)** 呈現。
