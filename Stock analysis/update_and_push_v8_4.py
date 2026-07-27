@@ -94,6 +94,16 @@ def main():
         print(f"❌  精選個股 Excel 回測生成失敗: {e}")
     print("-" * 60)
 
+    # 5b. 轉檔並同步更新官方 ETF 字典 (generate_etf_list.py)
+    print("🚀 5b. 轉檔並同步更新官方 ETF 字典 (generate_etf_list.py)...")
+    try:
+        server_dir_path = os.path.join(SCRIPT_DIR, "修正版_V6_Server")
+        subprocess.run(["python", "generate_etf_list.py"], cwd=server_dir_path, check=True)
+        print("✅ 5b. 官方 ETF 字典 JSON 生成完成。")
+    except Exception as e:
+        print(f"❌  官方 ETF 字典生成失敗: {e}")
+    print("-" * 60)
+
     # 6. 編譯網頁 (V8.4)
     print("🚀 6. 編譯並更新網頁 V8.4 (patch_dashboard_categories_v8_4.py)...")
     try:
