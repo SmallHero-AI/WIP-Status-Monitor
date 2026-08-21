@@ -1,0 +1,55 @@
+{
+  "title": "森林小動物的悠閒午後 (幼兒專用低剪輯頻率範例)",
+  "target_age_group": "1-3 歲幼兒",
+  "visual_safety": {
+    "min_scene_duration_sec": 10.0,
+    "transition_duration_sec": 2.5,
+    "saturation_scale": 0.85,
+    "contrast_scale": 0.90,
+    "brightness_guard": true
+  },
+  "scenes": [
+    {
+      "id": "scene_1",
+      "title": "陽光灑落的晨間森林",
+      "image": "sample_assets/scene1_forest.png",
+      "duration": 12.0,
+      "motion": {
+        "type": "pan_zoom",
+        "start": { "x": 0.1, "y": 0.1, "zoom": 1.0 },
+        "end": { "x": 0.25, "y": 0.2, "zoom": 1.15 },
+        "easing": "ease_in_out"
+      }
+    },
+    {
+      "id": "scene_2",
+      "title": "花草香氣的花園小徑",
+      "image": "sample_assets/scene2_meadow.png",
+      "duration": 14.0,
+      "motion": {
+        "type": "pan_zoom",
+        "start": { "x": 0.35, "y": 0.25, "zoom": 1.1 },
+        "end": { "x": 0.1, "y": 0.1, "zoom": 1.0 },
+        "easing": "ease_in_out"
+      }
+    },
+    {
+      "id": "scene_3",
+      "title": "微風輕吹的黃昏夕陽",
+      "image": "sample_assets/scene3_sunset.png",
+      "duration": 13.0,
+      "motion": {
+        "type": "pan_zoom",
+        "start": { "x": 0.15, "y": 0.3, "zoom": 1.05 },
+        "end": { "x": 0.3, "y": 0.1, "zoom": 1.2 },
+        "easing": "ease_in_out"
+      }
+    }
+  ],
+  "bgm": {
+    "file": "sample_assets/background_soft_music.mp3",
+    "volume": 0.25,
+    "fade_in_sec": 3.0,
+    "fade_out_sec": 3.0
+  }
+}
