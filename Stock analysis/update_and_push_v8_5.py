@@ -110,8 +110,9 @@ def main():
     print("-" * 60)
 
     # 6. 編譯網頁 (V8.5)
-    print("🚀 6. 編譯並更新網頁 V8.5 (patch_dashboard_categories_v8_5.py)...")
+    print("🚀 6. 編譯並更新網頁 V8.5 (patch_v8_5_html_ui.py & patch_dashboard_categories_v8_5.py)...")
     try:
+        subprocess.run(["python", "patch_v8_5_html_ui.py"], cwd=SCRIPT_DIR, check=True)
         subprocess.run(["python", "patch_dashboard_categories_v8_5.py"], cwd=SCRIPT_DIR, check=True)
         print("✅ 6. 網頁編譯與注入完成。")
     except Exception as e:

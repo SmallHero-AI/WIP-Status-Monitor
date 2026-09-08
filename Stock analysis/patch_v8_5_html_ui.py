@@ -3,16 +3,19 @@
 ================================================================================
   V8.5 網頁 UI 注入腳本 (patch_v8_5_html_ui.py)
   
-  用途：在 dashboard_v8_5_backup.html 中新增：
+  用途：讀取原乾淨版本 dashboard_v8_4_backup.html 產生 dashboard_v8_5_backup.html 並注入：
         1. 頂部「🔔 訊號通知中心」與「⚙️ 自動推播設定」按鈕與徽章
-        2. 今日三態訊號通知中心 Modal 彈窗 (含進場/出場/持倉頁籤)
+        2. 今日三態訊號通知中心 Modal 彈窗 (分區 Table 表格呈現)
         3. 推播設定與即時測試 Modal 彈窗
-        4. 前端 JavaScript 三態訊號解析與渲染邏輯
+        4. 前端 JavaScript 三態訊號解析與分區表格渲染邏輯
+        5. 「📊 目前策略持倉總覽」表格中加入「🎯 預計停利價」、「🛑 預計停損價」與「今日訊號處置」欄位
+        6. 修復將 leaderboard_v8_4.json / trades_v8_4.json 替換為 v8_5，並補齊 activeHoldings 中的 tpPrice 與 slPrice
 ================================================================================
 """
 
 import os
 import sys
+import shutil
 
 if sys.stdout.encoding != 'utf-8':
     try:
@@ -21,15 +24,61 @@ if sys.stdout.encoding != 'utf-8':
         pass
 
 SCRIPT_DIR = r"E:\G-AI-1\Stock analysis"
-BACKUP_PATH = os.path.join(SCRIPT_DIR, "修正版_V6_Server", "public", "dashboard_v8_5_backup.html")
+BASE_V84_PATH = os.path.join(SCRIPT_DIR, "修正版_V6_Server", "public", "dashboard_v8_4_backup.html")
+TARGET_V85_BACKUP = os.path.join(SCRIPT_DIR, "修正版_V6_Server", "public", "dashboard_v8_5_backup.html")
 
 def patch():
-    if not os.path.exists(BACKUP_PATH):
-        print(f"❌ 找不到 {BACKUP_PATH}")
+    if not os.path.exists(BASE_V84_PATH):
+        print(f"❌ 找不到 {BASE_V84_PATH}")
         return
 
-    with open(BACKUP_PATH, 'r', encoding='utf-8') as f:
+    # 複製份全新的 V8.4 Baseline 作為 V8.5 Backup
+    shutil.copyfile(BASE_V84_PATH, TARGET_V85_BACKUP)
+
+    with open(TARGET_V85_BACKUP, 'r', encoding='utf-8') as f:
         html = f.read()
+
+    # 0. 全面替換 leaderboard JSON 與 trades JSON 請求路徑為 V8.5
+    html = html.replace("leaderboard_v8_4.json", "leaderboard_v8_5.json")
+    html = html.replace("trades_v8_4.json", "trades_v8_5.json")
+
+    # 修復 loadLeaderboardData 內部 activeHoldings 賦值，補齊 tpPrice 與 slPrice
+    old_active_holding_init = """                    if (item.holding) {
+                        activeHoldings[uniqueId] = {
+                            code: item.code,
+                            name: item.name,
+                            buyDate: item.holding.buyDate,
+                            buyPrice: item.holding.buyPrice,
+                            currentPrice: item.holding.currentPrice || item.holding.buyPrice,
+                            pnl: item.holding.pnl || 0,
+                            roi: item.holding.roi || 0,
+                            shares: item.holding.shares || 1,
+                            uniqueId: uniqueId,
+                            posType: item.holding.posType || '多單',
+                            type: item.type || 'long'
+                        };
+                    }"""
+
+    new_active_holding_init = """                    if (item.holding) {
+                        activeHoldings[uniqueId] = {
+                            code: item.code,
+                            name: item.name,
+                            buyDate: item.holding.buyDate,
+                            buyPrice: item.holding.buyPrice,
+                            currentPrice: item.holding.currentPrice || item.holding.buyPrice,
+                            pnl: item.holding.pnl || 0,
+                            roi: item.holding.roi || 0,
+                            shares: item.holding.shares || 1,
+                            uniqueId: uniqueId,
+                            posType: item.holding.posType || '多單',
+                            type: item.type || 'long',
+                            tpPrice: item.holding.tpPrice || (item.signalInfo ? item.signalInfo.tpPrice : null),
+                            slPrice: item.holding.slPrice || (item.signalInfo ? item.signalInfo.slPrice : null)
+                        };
+                    }"""
+
+    if old_active_holding_init in html:
+        html = html.replace(old_active_holding_init, new_active_holding_init, 1)
 
     # 1. 注入 CSS 樣式
     css_to_insert = """
@@ -87,43 +136,41 @@ def patch():
             color: white;
         }
 
-        /* 訊號卡片容器 */
-        .signal-cards-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 14px;
-            margin-top: 15px;
+        /* 訊號表格容器 */
+        .signal-table-wrapper {
             max-height: 480px;
             overflow-y: auto;
-            padding-right: 4px;
-        }
-
-        .signal-card {
-            background: rgba(30, 41, 59, 0.7);
+            border-radius: 10px;
             border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            padding: 14px;
-            transition: all 0.2s ease;
-            position: relative;
+            margin-top: 15px;
         }
 
-        .signal-card:hover {
-            border-color: rgba(99, 102, 241, 0.5);
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+        .signal-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.84rem;
+            text-align: left;
         }
 
-        .signal-card-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 8px;
-        }
-
-        .signal-stock-title {
-            font-size: 1.05rem;
+        .signal-table th {
+            background: #1e293b;
+            color: #94a3b8;
+            padding: 12px 10px;
             font-weight: 700;
-            color: #f8fafc;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 2;
+        }
+
+        .signal-table td {
+            padding: 10px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            color: #e2e8f0;
+        }
+
+        .signal-table tr:hover {
+            background: rgba(255, 255, 255, 0.03);
         }
 
         .signal-tag {
@@ -131,24 +178,14 @@ def patch():
             font-weight: 700;
             padding: 3px 8px;
             border-radius: 6px;
+            display: inline-block;
         }
 
         .tag-entry { background: rgba(239, 68, 68, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); }
-        .tag-exit { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
+        .tag-exit-tp { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
+        .tag-exit-sl { background: rgba(239, 68, 68, 0.25); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.5); }
+        .tag-exit-sig { background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.4); }
         .tag-holding { background: rgba(59, 130, 246, 0.2); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); }
-
-        .signal-detail-item {
-            font-size: 0.83rem;
-            color: #94a3b8;
-            margin-bottom: 4px;
-            display: flex;
-            justify-content: space-between;
-        }
-
-        .signal-detail-val {
-            font-weight: 600;
-            color: #e2e8f0;
-        }
 
         .signal-tabs {
             display: flex;
@@ -176,10 +213,9 @@ def patch():
         }
     """
 
-    if "/* V8.5 新增：訊號通知中心與推播按鈕樣式 */" not in html:
-        style_idx = html.find("</style>")
-        if style_idx != -1:
-            html = html[:style_idx] + css_to_insert + "\n" + html[style_idx:]
+    style_idx = html.find("</style>")
+    if style_idx != -1:
+        html = html[:style_idx] + css_to_insert + "\n" + html[style_idx:]
 
     # 2. 注入按鈕至使用者資訊區塊 (user-profile-card)
     btn_html = """
@@ -192,21 +228,29 @@ def patch():
                 </button>
             </div>
     """
-    if "openSignalCenterModal()" not in html:
-        profile_idx = html.find('<div class="user-profile-card">')
-        if profile_idx != -1:
-            end_card_idx = html.find('</div>', profile_idx + 30)
-            if end_card_idx != -1:
-                html = html[:end_card_idx] + btn_html + html[end_card_idx:]
+    profile_idx = html.find('<div class="user-profile-card">')
+    if profile_idx != -1:
+        end_card_idx = html.find('</div>', profile_idx + 30)
+        if end_card_idx != -1:
+            html = html[:end_card_idx] + btn_html + html[end_card_idx:]
 
-    # 3. 注入 Modal 彈窗 HTML
+    # 3. 更新「目前策略持倉總覽」表格標頭 (加入 停利價、停損價、今日訊號處置 欄位)
+    old_th_str = '<th style="padding:12px; font-weight:700;">操作</th>'
+    new_th_str = """<th style="padding:12px; font-weight:700; color:#4ade80;">🎯 預計停利價</th>
+                            <th style="padding:12px; font-weight:700; color:#f87171;">🛑 預計停損價</th>
+                            <th style="padding:12px; font-weight:700;">今日訊號處置</th>
+                            <th style="padding:12px; font-weight:700;">操作</th>"""
+    if old_th_str in html:
+        html = html.replace(old_th_str, new_th_str, 1)
+
+    # 4. 注入 Modal 彈窗 HTML
     modals_html = """
-    <!-- V8.5 新增：今日三態訊號通知中心 Modal -->
+    <!-- V8.5 新增：今日三態訊號通知中心 Modal (表格呈現) -->
     <div id="modal_signal_center" class="modal" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.7); z-index: 9999; justify-content: center; align-items: center;">
-        <div style="background: #0f172a; border: 1px solid rgba(255,255,255,0.1); width: 90%; max-width: 900px; border-radius: 16px; padding: 24px; color: #f8fafc; box-shadow: 0 20px 40px rgba(0,0,0,0.5);">
+        <div style="background: #0f172a; border: 1px solid rgba(255,255,255,0.1); width: 92%; max-width: 1050px; border-radius: 16px; padding: 24px; color: #f8fafc; box-shadow: 0 20px 40px rgba(0,0,0,0.5);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
                 <h3 style="font-size: 1.25rem; font-weight: 700; color: #818cf8; display: flex; align-items: center; gap: 8px;">
-                    🔔 今日三態選股與觸發訊號通知中心
+                    🔔 今日三態選股與觸發訊號通知中心 (表格明細)
                 </h3>
                 <span onclick="closeSignalCenterModal()" style="cursor: pointer; font-size: 1.5rem; color: #94a3b8;">&times;</span>
             </div>
@@ -223,8 +267,8 @@ def patch():
                 </button>
             </div>
 
-            <div id="signal_cards_container" class="signal-cards-grid">
-                <!-- 動態注入訊號卡片 -->
+            <div id="signal_cards_container">
+                <!-- 動態注入訊號分區表格 -->
             </div>
             
             <div style="margin-top: 20px; text-align: right;">
@@ -245,7 +289,7 @@ def patch():
 
             <div style="background: rgba(30, 41, 59, 0.5); padding: 16px; border-radius: 12px; margin-bottom: 16px; font-size: 0.88rem; line-height: 1.6;">
                 <p style="color: #4ade80; font-weight: 700; margin-bottom: 6px;">🟢 LINE Bot 廣播已連線就緒 (Channel ID: 2011494352)</p>
-                <p style="color: #94a3b8;">系統會於每日 <code style="color: #cbd5e1;">update_and_push_v8_5.py</code> 自動更新完成時，自動發送最新選股與觸發卡片至您的 LINE！</p>
+                <p style="color: #94a3b8;">系統會於每日 <code style="color: #cbd5e1;">update_and_push_v8_5.py</code> 自動更新完成時，自動發送最新選股與觸發訊號至您的 LINE！</p>
             </div>
 
             <div style="text-align: center; margin-top: 20px; display: flex; gap: 10px; justify-content: flex-end;">
@@ -256,14 +300,107 @@ def patch():
     </div>
     """
 
-    if "modal_signal_center" not in html:
-        body_end_idx = html.find("</body>")
-        if body_end_idx != -1:
-            html = html[:body_end_idx] + modals_html + "\n" + html[body_end_idx:]
+    body_end_idx = html.find("</body>")
+    if body_end_idx != -1:
+        html = html[:body_end_idx] + modals_html + "\n" + html[body_end_idx:]
 
-    # 4. 注入 JavaScript 邏輯
+    # 5. 更新 updateHoldingSummaryPanel 渲染邏輯 (含自動補齊計算停利/停損價)
+    old_panel_func = """            if (holdings.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding:15px; color:var(--text-muted);">📭 目前無策略持倉</td></tr>`;
+            } else {
+                tableBody.innerHTML = holdings.map(h => {
+                    const isWin = h.pnl >= 0;
+                    const sign = isWin ? '+' : '';
+                    const color = isWin ? '#10b981' : '#ef4444';
+
+                    const typeText = h.posType || '多單';
+                    const isShort = typeText === '空單';
+                    const icon = isShort ? '📉' : '📈';
+
+                    return `
+                        <tr>
+                            <td><input type="checkbox" class="holding-checkbox" checked onchange="calculateHoldingTotalPnl()" data-pnl="${h.pnl}" data-cost="${h.buyPrice * h.shares * 1000}"></td>
+                            <td><span style="font-size:0.8rem; font-weight:700; padding:3px 8px; border-radius:4px; background:${isShort ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)'}; color:${isShort ? '#10b981' : '#ef4444'};">${icon} ${typeText}</span></td>
+                            <td style="font-weight:700;">${h.code} ${h.name}</td>
+                            <td>${h.buyDate}</td>
+                            <td>$${h.buyPrice.toFixed(1)}</td>
+                            <td>$${h.currentPrice.toFixed(1)}</td>
+                            <td>${h.shares}</td>
+                            <td style="color:${color}; font-weight:700;">${sign}$${Math.round(h.pnl).toLocaleString()} <br><small>(${sign}${h.roi.toFixed(2)}%)</small></td>
+                            <td>
+                                <button class="tab-btn" style="padding: 4px 10px; font-size: 0.8rem; background: #6366f1; border: none; border-radius: 4px; color: white; cursor: pointer;" onclick="selectStockTab('${h.uniqueId}', '${h.uniqueId}', '${h.name}', '${getStrategyIdByUniqueId(h.uniqueId)}', '${h.uniqueId.startsWith('custom_') ? 'custom' : 'preload'}')">查看</button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }"""
+
+    new_panel_func = """            if (holdings.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="12" style="text-align:center; padding:15px; color:var(--text-muted);">📭 目前無策略持倉</td></tr>`;
+            } else {
+                tableBody.innerHTML = holdings.map(h => {
+                    const isWin = h.pnl >= 0;
+                    const sign = isWin ? '+' : '';
+                    const color = isWin ? '#10b981' : '#ef4444';
+
+                    const typeText = h.posType || '多單';
+                    const isShort = typeText === '空單';
+                    const icon = isShort ? '📉' : '📈';
+
+                    const buyP = h.buyPrice || 0;
+                    const stockObj = (typeof preloadedStocks !== 'undefined') ? preloadedStocks.find(s => s.id.replace('s','').replace('_ai','') === h.code) : null;
+                    const sigObj = stockObj ? stockObj.signalInfo : null;
+
+                    let rawTp = h.tpPrice || (sigObj ? sigObj.tpPrice : null);
+                    let rawSl = h.slPrice || (sigObj ? sigObj.slPrice : null);
+                    let tpPct = (stockObj && stockObj.tp) ? stockObj.tp : 6.0;
+                    let slPct = (stockObj && stockObj.sl) ? stockObj.sl : 6.0;
+
+                    let tpVal = rawTp ? rawTp : (buyP > 0 ? buyP * (1 + (isShort ? -1 : 1) * (tpPct / 100)) : 0);
+                    let slVal = rawSl ? rawSl : (buyP > 0 ? buyP * (1 + (isShort ? 1 : -1) * (slPct / 100)) : 0);
+
+                    const tpText = tpVal > 0 ? `$${tpVal.toFixed(1)} (${isShort ? '-' : '+'}${tpPct}%)` : '-';
+                    const slText = slVal > 0 ? `$${slVal.toFixed(1)} (${isShort ? '+' : '-'}${slPct}%)` : '-';
+
+                    let sigTag = '<span style="font-size:0.75rem; font-weight:700; padding:2px 6px; border-radius:4px; background:rgba(59,130,246,0.2); color:#60a5fa;">📦 續抱中</span>';
+                    if (stockObj && stockObj.signalInfo && stockObj.signalInfo.status === 'TRIGGER_EXIT') {
+                        const sig = stockObj.signalInfo;
+                        if (sig.exitReasonType === 'TAKE_PROFIT') {
+                            sigTag = '<span style="font-size:0.75rem; font-weight:700; padding:2px 6px; border-radius:4px; background:rgba(16,185,129,0.2); color:#34d399;">🎯 達標停利(明日平倉)</span>';
+                        } else if (sig.exitReasonType === 'STOP_LOSS') {
+                            sigTag = '<span style="font-size:0.75rem; font-weight:700; padding:2px 6px; border-radius:4px; background:rgba(239,68,68,0.25); color:#f87171;">🛑 觸發停損(明日平倉)</span>';
+                        } else {
+                            sigTag = '<span style="font-size:0.75rem; font-weight:700; padding:2px 6px; border-radius:4px; background:rgba(245,158,11,0.2); color:#fbbf24;">⚠️ 指標離場(明日平倉)</span>';
+                        }
+                    }
+
+                    return `
+                        <tr>
+                            <td><input type="checkbox" class="holding-checkbox" checked onchange="calculateHoldingTotalPnl()" data-pnl="${h.pnl}" data-cost="${h.buyPrice * h.shares * 1000}"></td>
+                            <td><span style="font-size:0.8rem; font-weight:700; padding:3px 8px; border-radius:4px; background:${isShort ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)'}; color:${isShort ? '#10b981' : '#ef4444'};">${icon} ${typeText}</span></td>
+                            <td style="font-weight:700;">${h.code} ${h.name}</td>
+                            <td>${h.buyDate}</td>
+                            <td>$${h.buyPrice.toFixed(1)}</td>
+                            <td>$${h.currentPrice.toFixed(1)}</td>
+                            <td>${h.shares}</td>
+                            <td style="color:${color}; font-weight:700;">${sign}$${Math.round(h.pnl).toLocaleString()} <br><small>(${sign}${h.roi.toFixed(2)}%)</small></td>
+                            <td style="color:#4ade80; font-weight:700;">${tpText}</td>
+                            <td style="color:#f87171; font-weight:700;">${slText}</td>
+                            <td>${sigTag}</td>
+                            <td>
+                                <button class="tab-btn" style="padding: 4px 10px; font-size: 0.8rem; background: #6366f1; border: none; border-radius: 4px; color: white; cursor: pointer;" onclick="selectStockTab('${h.uniqueId}', '${h.uniqueId}', '${h.name}', '${getStrategyIdByUniqueId(h.uniqueId)}', '${h.uniqueId.startsWith('custom_') ? 'custom' : 'preload'}')">查看</button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }"""
+
+    if old_panel_func in html:
+        html = html.replace(old_panel_func, new_panel_func, 1)
+
+    # 6. 注入 JavaScript 邏輯 (表格呈現與停利停損價智慧計算)
     js_to_insert = """
-        // V8.5 三態訊號通知中心邏輯
+        // V8.5 三態訊號通知中心與表格渲染邏輯
         let currentSignalTab = 'ENTRY';
 
         function initV85SignalCenter() {
@@ -345,48 +482,152 @@ def patch():
             });
 
             if (filtered.length === 0) {
-                container.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #94a3b8;">此分類今日尚無紀錄</div>`;
+                container.innerHTML = `<div style="text-align: center; padding: 40px; color: #94a3b8;">此分類今日尚無紀錄</div>`;
                 return;
             }
 
-            filtered.forEach(s => {
-                const sig = s.signalInfo;
-                const dir = sig.direction || (s.type === 'short' ? '空單' : '多單');
-                const isShort = dir === '空單';
-                
-                let tagClass = 'tag-entry';
-                let tagText = '🔥 今日觸發進場';
-                if (sig.status === 'TRIGGER_EXIT') { tagClass = 'tag-exit'; tagText = '⚠️ 今日觸發出場'; }
-                else if (sig.status === 'HOLDING') { tagClass = 'tag-holding'; tagText = '📦 持倉中'; }
+            let tableHtml = '<div class="signal-table-wrapper"><table class="signal-table"><thead><tr>';
 
-                const cardHtml = `
-                    <div class="signal-card">
-                        <div class="signal-card-header">
-                            <span class="signal-stock-title">${s.id.replace('s','').replace('_ai','')} ${s.name} (${dir})</span>
-                            <span class="signal-tag ${tagClass}">${tagText}</span>
-                        </div>
-                        <div style="font-size: 0.78rem; color: #818cf8; margin-bottom: 8px; font-weight: 600;">
-                            型態策略：${s.entry || s.strategy}
-                        </div>
-                        <div class="signal-detail-item">
-                            <span>觸發日期：</span>
-                            <span class="signal-detail-val">${sig.triggerDate || sig.buyDate || '-'}</span>
-                        </div>
-                        <div class="signal-detail-item">
-                            <span>預計進/當前價：</span>
-                            <span class="signal-detail-val">$${sig.targetEntryPrice || sig.buyPrice || sig.currentPrice || '-'}</span>
-                        </div>
-                        <div class="signal-detail-item">
-                            <span>目標停利/停損：</span>
-                            <span class="signal-detail-val" style="color: #4ade80;">+$${sig.tpPrice || '-'} / -$${sig.slPrice || '-'}</span>
-                        </div>
-                        <div style="font-size: 0.75rem; color: #94a3b8; margin-top: 6px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 6px;">
-                            ${sig.reason || '策略條件達成'}
-                        </div>
-                    </div>
-                `;
-                container.innerHTML += cardHtml;
-            });
+            if (tab === 'ENTRY') {
+                tableHtml += `
+                    <th>股票標的</th>
+                    <th>類型</th>
+                    <th>型態策略</th>
+                    <th>觸發日期</th>
+                    <th>參考買價</th>
+                    <th style="color: #4ade80;">🎯 預計停利價</th>
+                    <th style="color: #f87171;">🛑 預計停損價</th>
+                    <th>預計處置</th>
+                </tr></thead><tbody>`;
+
+                filtered.forEach(s => {
+                    const sig = s.signalInfo;
+                    const stockCode = s.id.replace('s','').replace('_ai','');
+                    const dir = sig.direction || (s.type === 'short' ? '空單' : '多單');
+                    const isShort = dir === '空單';
+                    const icon = isShort ? '📉' : '📈';
+                    
+                    const buyP = sig.targetEntryPrice || sig.currentPrice || s.buyPrice || 0;
+                    let rawTp = sig.tpPrice;
+                    let rawSl = sig.slPrice;
+                    let tpPct = s.tp || 6.0;
+                    let slPct = s.sl || 6.0;
+
+                    let tpVal = rawTp ? rawTp : (buyP > 0 ? buyP * (1 + (isShort ? -1 : 1) * (tpPct / 100)) : 0);
+                    let slVal = rawSl ? rawSl : (buyP > 0 ? buyP * (1 + (isShort ? 1 : -1) * (slPct / 100)) : 0);
+
+                    const tpText = tpVal > 0 ? `$${tpVal.toFixed(1)} (${isShort ? '-' : '+'}${tpPct}%)` : '-';
+                    const slText = slVal > 0 ? `$${slVal.toFixed(1)} (${isShort ? '+' : '-'}${slPct}%)` : '-';
+
+                    tableHtml += `
+                        <tr>
+                            <td style="font-weight:700; color:#f8fafc;">${stockCode} ${s.name}</td>
+                            <td><span style="color:${isShort ? '#10b981' : '#ef4444'}; font-weight:600;">${icon} ${dir}</span></td>
+                            <td style="color:#818cf8; font-weight:600;">${s.entry || s.strategy}</td>
+                            <td>${sig.triggerDate || '-'}</td>
+                            <td style="font-weight:700;">$${buyP.toFixed(1)}</td>
+                            <td style="color:#4ade80; font-weight:700;">${tpText}</td>
+                            <td style="color:#f87171; font-weight:700;">${slText}</td>
+                            <td><span class="signal-tag tag-entry">🎯 明日開盤預計買進</span></td>
+                        </tr>
+                    `;
+                });
+            } else if (tab === 'EXIT') {
+                tableHtml += `
+                    <th>股票標的</th>
+                    <th>類型</th>
+                    <th>原買入日</th>
+                    <th>原買價</th>
+                    <th>當前收盤價</th>
+                    <th>累積未實現ROI</th>
+                    <th>離場原因細分</th>
+                    <th>預計處置</th>
+                </tr></thead><tbody>`;
+
+                filtered.forEach(s => {
+                    const sig = s.signalInfo;
+                    const stockCode = s.id.replace('s','').replace('_ai','');
+                    const dir = sig.direction || (s.type === 'short' ? '空單' : '多單');
+                    const isShort = dir === '空單';
+                    const icon = isShort ? '📉' : '📈';
+                    const roiVal = sig.roi || 0;
+                    const isWin = roiVal >= 0;
+                    const color = isWin ? '#10b981' : '#ef4444';
+                    
+                    let reasonTag = '<span class="signal-tag tag-exit-sig">📊 指標出場</span>';
+                    if (sig.exitReasonType === 'TAKE_PROFIT') {
+                        reasonTag = '<span class="signal-tag tag-exit-tp">🎯 達標停利</span>';
+                    } else if (sig.exitReasonType === 'STOP_LOSS') {
+                        reasonTag = '<span class="signal-tag tag-exit-sl">🛑 觸發停損</span>';
+                    }
+
+                    tableHtml += `
+                        <tr>
+                            <td style="font-weight:700; color:#f8fafc;">${stockCode} ${s.name}</td>
+                            <td><span style="color:${isShort ? '#10b981' : '#ef4444'}; font-weight:600;">${icon} ${dir}</span></td>
+                            <td>${sig.triggerDate || s.holding?.buyDate || '-'}</td>
+                            <td>$${(sig.entryPrice || s.holding?.buyPrice || 0).toFixed(1)}</td>
+                            <td>$${(sig.currentPrice || s.holding?.currentPrice || 0).toFixed(1)}</td>
+                            <td style="color:${color}; font-weight:700;">${isWin ? '+' : ''}${roiVal.toFixed(2)}%</td>
+                            <td>${reasonTag} <span style="font-size:0.75rem; color:#94a3b8;">(${sig.exitReasonText || sig.reason || ''})</span></td>
+                            <td><span class="signal-tag tag-exit-sl">⚠️ 明日開盤預計平倉</span></td>
+                        </tr>
+                    `;
+                });
+            } else if (tab === 'HOLDING') {
+                tableHtml += `
+                    <th>股票標的</th>
+                    <th>類型</th>
+                    <th>買入日期</th>
+                    <th>買入成本價</th>
+                    <th>當前最新價</th>
+                    <th>未實現ROI</th>
+                    <th style="color: #4ade80;">🎯 預計停利價</th>
+                    <th style="color: #f87171;">🛑 預計停損價</th>
+                    <th>當前狀態</th>
+                </tr></thead><tbody>`;
+
+                filtered.forEach(s => {
+                    const sig = s.signalInfo;
+                    const stockCode = s.id.replace('s','').replace('_ai','');
+                    const dir = sig.direction || (s.type === 'short' ? '空單' : '多單');
+                    const isShort = dir === '空單';
+                    const icon = isShort ? '📉' : '📈';
+                    const buyP = sig.buyPrice || s.holding?.buyPrice || 0;
+                    const currP = sig.currentPrice || s.holding?.currentPrice || 0;
+                    const roiVal = sig.roi || s.holding?.roi || 0;
+                    const isWin = roiVal >= 0;
+                    const color = isWin ? '#10b981' : '#ef4444';
+
+                    let rawTp = sig.tpPrice || s.holding?.tpPrice;
+                    let rawSl = sig.slPrice || s.holding?.slPrice;
+                    let tpPct = s.tp || 6.0;
+                    let slPct = s.sl || 6.0;
+
+                    let tpVal = rawTp ? rawTp : (buyP > 0 ? buyP * (1 + (isShort ? -1 : 1) * (tpPct / 100)) : 0);
+                    let slVal = rawSl ? rawSl : (buyP > 0 ? buyP * (1 + (isShort ? 1 : -1) * (slPct / 100)) : 0);
+
+                    const tpText = tpVal > 0 ? `$${tpVal.toFixed(1)} (${isShort ? '-' : '+'}${tpPct}%)` : '-';
+                    const slText = slVal > 0 ? `$${slVal.toFixed(1)} (${isShort ? '+' : '-'}${slPct}%)` : '-';
+
+                    tableHtml += `
+                        <tr>
+                            <td style="font-weight:700; color:#f8fafc;">${stockCode} ${s.name}</td>
+                            <td><span style="color:${isShort ? '#10b981' : '#ef4444'}; font-weight:600;">${icon} ${dir}</span></td>
+                            <td>${sig.buyDate || s.holding?.buyDate || '-'}</td>
+                            <td>$${buyP.toFixed(1)}</td>
+                            <td>$${currP.toFixed(1)}</td>
+                            <td style="color:${color}; font-weight:700;">${isWin ? '+' : ''}${roiVal.toFixed(2)}%</td>
+                            <td style="color:#4ade80; font-weight:700;">${tpText}</td>
+                            <td style="color:#f87171; font-weight:700;">${slText}</td>
+                            <td><span class="signal-tag tag-holding">📦 續抱中</span></td>
+                        </tr>
+                    `;
+                });
+            }
+
+            tableHtml += `</tbody></table></div>`;
+            container.innerHTML = tableHtml;
         }
 
         async function testLinePushWeb() {
@@ -416,14 +657,13 @@ def patch():
         });
     """
 
-    if "function initV85SignalCenter()" not in html:
-        script_idx = html.rfind("</script>")
-        if script_idx != -1:
-            html = html[:script_idx] + js_to_insert + "\n" + html[script_idx:]
+    script_idx = html.rfind("</script>")
+    if script_idx != -1:
+        html = html[:script_idx] + js_to_insert + "\n" + html[script_idx:]
 
-    with open(BACKUP_PATH, 'w', encoding='utf-8') as f:
+    with open(TARGET_V85_BACKUP, 'w', encoding='utf-8') as f:
         f.write(html)
-    print("✅ 成功為 dashboard_v8_5_backup.html 注入 V8.5 三態訊號通知中心與 UI 組件！")
+    print("✅ 成功產生乾淨且完全升級之 dashboard_v8_5_backup.html (修復 leaderboard_v8_5.json 請求與停利停損價自動補齊計算)！")
 
 if __name__ == "__main__":
     patch()

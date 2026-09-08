@@ -395,7 +395,8 @@ def main():
                             
                             if i == n_rows - 2:
                                 # 最新一天觸發離場平倉訊號 (預計明日開盤平倉)
-                                reason_text = "停利離場" if cond_tp else ("停損離場" if cond_sl else "策略指標離場")
+                                reason_type = "TAKE_PROFIT" if cond_tp else ("STOP_LOSS" if cond_sl else "SIGNAL_EXIT")
+                                reason_text = "🎯 停利平倉" if cond_tp else ("🛑 停損平倉" if cond_sl else "📊 策略指標轉弱離場")
                                 last_signal_status = "TRIGGER_EXIT"
                                 last_signal_info = {
                                     "status": "TRIGGER_EXIT",
@@ -406,6 +407,10 @@ def main():
                                     "currentPrice": round(curr_close, 2),
                                     "pnl": round(trade_pnl, 2),
                                     "roi": round(trade_roi * 100, 2),
+                                    "tpPrice": round(buy_price * (1 + tp), 2) if tp else None,
+                                    "slPrice": round(buy_price * (1 - sl), 2) if sl else None,
+                                    "exitReasonType": reason_type,
+                                    "exitReasonText": reason_text,
                                     "reason": f"觸發多頭出場條件 [{ext_name} - {reason_text}] (預計明日開盤平倉)"
                                 }
                             buy_price = 0
@@ -529,7 +534,8 @@ def main():
                             })
                             
                             if i == n_rows - 2:
-                                reason_text = "停利回補" if cond_tp else ("停損回補" if cond_sl else "策略指標回補")
+                                reason_type = "TAKE_PROFIT" if cond_tp else ("STOP_LOSS" if cond_sl else "SIGNAL_EXIT")
+                                reason_text = "🎯 停利回補" if cond_tp else ("🛑 停損回補" if cond_sl else "📊 策略指標回補離場")
                                 last_signal_info = {
                                     "status": "TRIGGER_EXIT",
                                     "direction": "空單",
@@ -539,6 +545,10 @@ def main():
                                     "currentPrice": round(curr_close, 2),
                                     "pnl": round(trade_pnl, 2),
                                     "roi": round(trade_roi * 100, 2),
+                                    "tpPrice": round(short_price * (1 - tp), 2) if tp else None,
+                                    "slPrice": round(short_price * (1 + sl), 2) if sl else None,
+                                    "exitReasonType": reason_type,
+                                    "exitReasonText": reason_text,
                                     "reason": f"觸發空頭出場條件 [{ext_name} - {reason_text}] (預計明日開盤回補)"
                                 }
                             short_price = 0
@@ -588,7 +598,9 @@ def main():
                     "pnl": holding_pnl,
                     "roi": holding_roi,
                     "shares": 1.0,
-                    "posType": "多單"
+                    "posType": "多單",
+                    "tpPrice": best_long_signal_info.get("tpPrice") if best_long_signal_info else None,
+                    "slPrice": best_long_signal_info.get("slPrice") if best_long_signal_info else None
                 }
 
             leaderboard_data.append({
@@ -620,7 +632,9 @@ def main():
                     "pnl": holding_pnl,
                     "roi": holding_roi,
                     "shares": 1.0,
-                    "posType": "空單"
+                    "posType": "空單",
+                    "tpPrice": best_short_signal_info.get("tpPrice") if best_short_signal_info else None,
+                    "slPrice": best_short_signal_info.get("slPrice") if best_short_signal_info else None
                 }
 
             leaderboard_data.append({

@@ -735,7 +735,6 @@ def run_rpa_export_workflow():
     print(f"  個股：{len(STOCK_LIST)} 支", flush=True)
     print(flush=True)
 
-
     os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 
     # ── 倒數讓使用者切換視窗 ──
@@ -807,8 +806,6 @@ def run_rpa_export_workflow():
         print(f"  ✅ {s}", flush=True)
     for f in failed:
         print(f"  ❌ {f}（請手動補匯）", flush=True)
-    print(f"  📁 {OUTPUT_FOLDER}", flush=True)
-    print(f"{'='*62}", flush=True)
 
     # ── Excel 資料庫自動更新與舊檔備份 ──
     if len(success) > 0:
@@ -831,12 +828,12 @@ def main():
 
     while True:
         print("\n" + "=" * 62)
-        print("  台新贏家快手 V5.1.1  RPA 自動化管線主選單")
+        print("  台新贏家快手 V5.1.1  RPA 自動化管線主選單 (V8.5 版)")
         print("=" * 62)
-        print("  [1] 【完整流程】執行 RPA 匯出 + 清洗轉檔 + V8.4回測與更新伺服器")
+        print("  [1] 【完整流程】執行 RPA 匯出 + 清洗轉檔 + V8.5 三態回測與 LINE 推播更新")
         print("  [2] 【RPA 匯出】僅執行 RPA 匯出與清洗 (產生 CSV)")
         print("  [3] 【轉檔 Excel】將已匯出的 CSV 轉存至 Stock original (不開看盤軟體)")
-        print("  [4] 【AI 回測】跳過 RPA，直接執行後續 V8.4 型態策略篩選與網頁更新")
+        print("  [4] 【AI 回測】跳過 RPA，直接執行 V8.5 三態策略篩選、網頁與 LINE 推播更新")
         print("  [5] 【校準座標】重新測量與校準看盤軟體的滑鼠點擊座標")
         print("  [0] 離開")
         print("-" * 62)
@@ -844,20 +841,15 @@ def main():
         choice = input("請選擇要執行的功能 (0-5): ").strip()
         
         if choice == '1':
-            print("\n[啟動完整流程]")
+            print("\n[啟動完整流程 (V8.5)]")
             run_rpa_export_workflow()
-            # The workflow already prompts to convert to Excel
             import subprocess
-            print("\n[啟動 V8.4 自動化回測與伺服器更新]")
+            print("\n[啟動 V8.5 自動化回測、網頁更新與 LINE 推播]")
             try:
-                # We skip calling stock_exporter.py recursively inside update_and_push by modifying it temporarily, or just call the individual scripts
-                subprocess.run(["python", "update_base_stocks_backtests.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
-                subprocess.run(["python", "search_75_winrate_v8_4.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
-                subprocess.run(["python", "export_high_win_excel_v8_4.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
-                subprocess.run(["python", "patch_dashboard_categories_v8_4.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
-                print("\n🎉 完整流程執行完畢！ (未自動 Git Push，如有需要請手動執行)")
+                subprocess.run(["python", "update_and_push_v8_5.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
+                print("\n🎉 完整 V8.5 流程執行完畢！")
             except Exception as e:
-                print(f"❌ 執行回測失敗: {e}")
+                print(f"❌ 執行 V8.5 回測失敗: {e}")
             
         elif choice == '2':
             print("\n[僅 RPA 匯出]")
@@ -888,14 +880,11 @@ def main():
                 print("❌ 解析 CSV 檔名失敗")
                 
         elif choice == '4':
-            print("\n[啟動 V8.4 自動化回測與伺服器更新]")
+            print("\n[啟動 V8.5 自動化回測、網頁更新與 LINE 推播]")
             import subprocess
             try:
-                subprocess.run(["python", "update_base_stocks_backtests.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
-                subprocess.run(["python", "search_75_winrate_v8_4.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
-                subprocess.run(["python", "export_high_win_excel_v8_4.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
-                subprocess.run(["python", "patch_dashboard_categories_v8_4.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
-                print("\n🎉 執行完畢！")
+                subprocess.run(["python", "update_and_push_v8_5.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
+                print("\n🎉 V8.5 執行完畢！")
             except Exception as e:
                 print(f"❌ 執行失敗: {e}")
             
