@@ -10,9 +10,16 @@
 """
 
 import os
+import sys
 import json
 import requests
 import datetime
+
+if sys.stdout.encoding != 'utf-8':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except AttributeError:
+        pass
 
 SCRIPT_DIR = r"E:\G-AI-1\Stock analysis"
 LEADERBOARD_PATH = os.path.join(SCRIPT_DIR, "修正版_V6_Server", "public", "leaderboard_v8_5.json")
