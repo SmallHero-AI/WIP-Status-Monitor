@@ -234,6 +234,21 @@ def patch():
         if end_card_idx != -1:
             html = html[:end_card_idx] + btn_html + html[end_card_idx:]
 
+    # 2.5 注入三態訊號動態彙整卡片至「目前策略持倉總覽」頁面頂部
+    old_holding_title = '<span>📊 目前有持倉的個股 (未實現損益模擬)</span>'
+    new_holding_title = """<span>📊 目前有持倉的個股 (未實現損益模擬)</span>
+            <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 12px 18px; margin-top: 12px; margin-bottom: 18px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+                <div style="display: flex; align-items: center; gap: 14px; font-size: 0.88rem; font-weight: 600; flex-wrap: wrap;">
+                    <span style="color: #cbd5e1; display: flex; align-items: center; gap: 6px;">🔔 <b>今日三態訊號動態彙整：</b></span>
+                    <span style="background: rgba(239, 68, 68, 0.15); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.3); padding: 4px 12px; border-radius: 8px; font-size: 0.85rem;">🔥 今日新觸發進場: <strong id="holding_page_cnt_entry" style="font-size: 0.95rem;">0</strong> 檔</span>
+                    <span style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); padding: 4px 12px; border-radius: 8px; font-size: 0.85rem;">⚠️ 今日新觸發離場: <strong id="holding_page_cnt_exit" style="font-size: 0.95rem;">0</strong> 檔</span>
+                    <span style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); padding: 4px 12px; border-radius: 8px; font-size: 0.85rem;">📦 現正持倉中: <strong id="holding_page_cnt_holding" style="font-size: 0.95rem;">0</strong> 檔</span>
+                </div>
+                <button class="btn-signal-center" onclick="openSignalCenterModal()" style="font-size: 0.8rem; padding: 6px 14px;">🔍 開啟詳細訊號通知中心</button>
+            </div>"""
+    if old_holding_title in html:
+        html = html.replace(old_holding_title, new_holding_title, 1)
+
     # 3. 更新「目前策略持倉總覽」表格標頭 (加入 停利價、停損價、今日訊號處置 欄位)
     old_th_str = '<th style="padding:12px; font-weight:700;">操作</th>'
     new_th_str = """<th style="padding:12px; font-weight:700; color:#4ade80;">🎯 預計停利價</th>
@@ -431,6 +446,14 @@ def patch():
             if (cEntry) cEntry.innerText = entryCnt;
             if (cExit) cExit.innerText = exitCnt;
             if (cHolding) cHolding.innerText = holdingCnt;
+
+            // 持倉總覽頁面頂部卡片數據同步
+            const hpEntry = document.getElementById('holding_page_cnt_entry');
+            const hpExit = document.getElementById('holding_page_cnt_exit');
+            const hpHolding = document.getElementById('holding_page_cnt_holding');
+            if (hpEntry) hpEntry.innerText = entryCnt;
+            if (hpExit) hpExit.innerText = exitCnt;
+            if (hpHolding) hpHolding.innerText = holdingCnt;
         }
 
         function openSignalCenterModal() {
