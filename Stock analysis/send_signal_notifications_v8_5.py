@@ -6,6 +6,7 @@
   用途：讀取 leaderboard_v8_5.json，篩選當日最新觸發之進場 (TRIGGER_ENTRY)
         與離場 (TRIGGER_EXIT) 訊號個股，格式化卡片訊息並透過 LINE Broadcast API
         全自動推播到使用者的 LINE 帳號。
+        內建「當日防重複推播機制」，同一天相同訊號不會重複洗版發送。
 ================================================================================
 """
 
@@ -23,6 +24,7 @@ if sys.stdout.encoding != 'utf-8':
 
 SCRIPT_DIR = r"E:\G-AI-1\Stock analysis"
 LEADERBOARD_PATH = os.path.join(SCRIPT_DIR, "修正版_V6_Server", "public", "leaderboard_v8_5.json")
+PUSH_LOG_PATH = os.path.join(SCRIPT_DIR, "sent_push_log_v8_5.json")
 
 # LINE Channel 帳密 (用於自動產生發行 Token)
 LINE_CHANNEL_ID = "2011494352"
@@ -67,10 +69,28 @@ def send_line_broadcast(token, text_message):
         print(f"❌ LINE 廣播請求失敗: {e}")
         return None
 
+def load_push_log():
+    if os.path.exists(PUSH_LOG_PATH):
+        try:
+            with open(PUSH_LOG_PATH, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+def save_push_log(log_data):
+    try:
+        with open(PUSH_LOG_PATH, 'w', encoding='utf-8') as f:
+            json.dump(log_data, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"⚠️ 寫入推播紀錄檔失敗: {e}")
+
 def main():
     print("=" * 60)
     print("  [Start] V8.5 今日選股與觸發訊號自動推播程序...")
     print("=" * 60)
+
+    force_send = "--force" in sys.argv or "-f" in sys.argv
 
     if not os.path.exists(LEADERBOARD_PATH):
         print(f"⚠️ 排行榜檔案不存在: {LEADERBOARD_PATH}，跳過推播。")
@@ -106,6 +126,23 @@ def main():
     if not trigger_entries and not trigger_exits:
         print("💡 今日無新增觸發之進出場訊號，跳過推播訊息發送。")
         return
+
+    # 生成當日訊號指紋
+    entry_codes = sorted([x['code'] for x in trigger_entries])
+    exit_codes = sorted([x['code'] for x in trigger_exits])
+    signal_fingerprint = f"{today_str}_entry:{','.join(entry_codes)}_exit:{','.join(exit_codes)}"
+
+    # 檢查當日防重複機制
+    push_log = load_push_log()
+    today_record = push_log.get(today_str)
+
+    if today_record and not force_send:
+        last_fingerprint = today_record.get("fingerprint")
+        last_sent_time = today_record.get("sent_time", "未知時間")
+        if last_fingerprint == signal_fingerprint:
+            print(f"🛡️ [當日防重複保護] 今日訊號已於 {last_sent_time} 推播完成，自動跳過發送！")
+            print("💡 (提示: 若需強制重新推播，請帶入 --force 或 -f 參數執行)")
+            return
 
     # 格式化訊息
     msg_lines = [
@@ -159,6 +196,15 @@ def main():
         res = send_line_broadcast(token, final_message)
         if res and res.status_code == 200:
             print("✅ [成功] LINE 廣播推播發送成功！所有訂閱用戶均已接收最新警示訊息。")
+            # 更新防重複紀錄檔
+            now_time_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            push_log[today_str] = {
+                "sent_time": now_time_str,
+                "fingerprint": signal_fingerprint,
+                "entries_count": len(trigger_entries),
+                "exits_count": len(trigger_exits)
+            }
+            save_push_log(push_log)
         else:
             status_c = res.status_code if res else "Unknown"
             resp_t = res.text if res else "No response"
@@ -166,3 +212,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
