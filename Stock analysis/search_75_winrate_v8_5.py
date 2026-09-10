@@ -272,7 +272,7 @@ def process_single_stock(filepath):
                     trade_roi = (curr_close - buy_price) / buy_price
                     cond_tp = (tp is not None) and (trade_roi >= tp)
                     cond_sl = (sl is not None) and (trade_roi <= -sl)
-                    cond_signal = ext_sig[i]
+                    cond_signal = ext_sig[i] if ext_sig is not None else False
                     if ext_name == "波段追蹤：ATR追蹤停損 (最高價拉回3*ATR離場)":
                         cond_signal = curr_close < (highest_since_entry - 3 * atr[i])
                         cond_sl = trade_roi <= -0.10
@@ -308,7 +308,7 @@ def process_single_stock(filepath):
                 trade_roi = (latest_close - buy_price) / buy_price
                 cond_tp = (tp is not None) and (trade_roi >= tp)
                 cond_sl = (sl is not None) and (trade_roi <= -sl)
-                cond_signal = ext_sig[-1]
+                cond_signal = ext_sig[-1] if ext_sig is not None else False
                 if ext_name == "波段追蹤：ATR追蹤停損 (最高價拉回3*ATR離場)":
                     cond_signal = latest_close < (highest_since_entry - 3 * atr[-1])
                     cond_sl = trade_roi <= -0.10

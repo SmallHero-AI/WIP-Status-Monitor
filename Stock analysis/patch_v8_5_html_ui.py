@@ -235,8 +235,8 @@ def patch():
             html = html[:end_card_idx] + btn_html + html[end_card_idx:]
 
     # 2.5 注入三態訊號動態彙整卡片至「目前策略持倉總覽」頁面頂部
-    old_holding_title = '<span>📊 目前有持倉的個股 (未實現損益模擬)</span>'
-    new_holding_title = """<span>📊 目前有持倉的個股 (未實現損益模擬)</span>
+    old_holding_title = '<h2 class="section-title" style="margin-bottom: 20px;">📊 目前策略持倉總覽 (未實現損益模擬)</h2>'
+    new_holding_title = """<h2 class="section-title" style="margin-bottom: 20px;">📊 目前策略持倉總覽 (未實現損益模擬)</h2>
             <div style="background: rgba(15, 23, 42, 0.7); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 12px 18px; margin-top: 12px; margin-bottom: 18px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
                 <div style="display: flex; align-items: center; gap: 14px; font-size: 0.88rem; font-weight: 600; flex-wrap: wrap;">
                     <span style="color: #cbd5e1; display: flex; align-items: center; gap: 6px;">🔔 <b>今日三態訊號動態彙整：</b></span>
