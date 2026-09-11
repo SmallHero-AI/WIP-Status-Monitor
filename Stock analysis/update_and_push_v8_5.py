@@ -56,20 +56,23 @@ def main():
     print("-" * 60)
 
     # 2. 啟動 RPA 行情下載程序 (可選)
-    print("🚀 2. 啟動 RPA 行情下載程序 (stock_exporter.py)...")
-    try:
-        p = subprocess.Popen(
-            ["python", "stock_exporter.py", "--auto"],
-            cwd=os.path.join(SCRIPT_DIR, "RPA_Automation"),
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
-        )
-        stdout, stderr = p.communicate(input=b"\n\n\n")
-        print("[RPA 輸出]:")
-        print(stdout.decode('utf-8', errors='ignore'))
-    except Exception as e:
-        print(f"❌  RPA 執行失敗: {e}，將繼續進行本機回測...")
+    if "--skip-rpa" in sys.argv:
+        print("💡 2. [跳過 RPA] 檢測到 --skip-rpa 參數，跳過看盤軟體 RPA 自動匯出...")
+    else:
+        print("🚀 2. 啟動 RPA 行情下載程序 (stock_exporter.py)...")
+        try:
+            p = subprocess.Popen(
+                ["python", "stock_exporter.py", "--auto"],
+                cwd=os.path.join(SCRIPT_DIR, "RPA_Automation"),
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+            stdout, stderr = p.communicate(input=b"\n\n\n")
+            print("[RPA 輸出]:")
+            print(stdout.decode('utf-8', errors='ignore'))
+        except Exception as e:
+            print(f"❌  RPA 執行失敗: {e}，將繼續進行本機回測...")
     print("-" * 60)
 
     # 3. 執行 12 檔基礎個股 Excel 行情更新

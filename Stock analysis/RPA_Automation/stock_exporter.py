@@ -880,10 +880,10 @@ def main():
                 print("❌ 解析 CSV 檔名失敗")
                 
         elif choice == '4':
-            print("\n[啟動 V8.5 自動化回測、網頁更新與 LINE 推播]")
+            print("\n[啟動 V8.5 自動化回測、網頁更新與 LINE 推播 (跳過 RPA)]")
             import subprocess
             try:
-                subprocess.run(["python", "update_and_push_v8_5.py"], cwd=STOCK_ANALYSIS_DIR, check=True)
+                subprocess.run(["python", "update_and_push_v8_5.py", "--skip-rpa"], cwd=STOCK_ANALYSIS_DIR, check=True)
                 print("\n🎉 V8.5 執行完畢！")
             except Exception as e:
                 print(f"❌ 執行失敗: {e}")
