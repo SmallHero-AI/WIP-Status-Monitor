@@ -87,6 +87,40 @@ def patch():
         "            } else {\n                if (!activeHoldings[pre] || !activeHoldings[pre].isPreloadedHolding) {\n                    delete activeHoldings[pre];\n                }\n            }"
     )
 
+    # 防護：點擊「查看」時，updateUI 賦值給 activeHoldings[pre] 需保留原有的 tpPrice, slPrice 與 isPreloadedHolding
+    old_update_ui_assign = """                    activeHoldings[pre] = {
+                        code: cleanCode,
+                        name: getStockName(pre),
+                        buyDate: lastTrd.date,
+                        buyPrice: bp,
+                        currentPrice: todayPrice,
+                        pnl: p,
+                        roi: roiPercent,
+                        shares: sh / 1000,
+                        uniqueId: pre,
+                        posType: isLongHolding ? '多單' : '空單'
+                    };"""
+
+    new_update_ui_assign = """                    const prevHolding = activeHoldings[pre];
+                    activeHoldings[pre] = {
+                        code: cleanCode,
+                        name: getStockName(pre),
+                        buyDate: lastTrd.date,
+                        buyPrice: bp,
+                        currentPrice: todayPrice,
+                        pnl: p,
+                        roi: roiPercent,
+                        shares: sh / 1000,
+                        uniqueId: pre,
+                        posType: isLongHolding ? '多單' : '空單',
+                        tpPrice: prevHolding ? prevHolding.tpPrice : null,
+                        slPrice: prevHolding ? prevHolding.slPrice : null,
+                        isPreloadedHolding: prevHolding ? prevHolding.isPreloadedHolding : false
+                    };"""
+
+    if old_update_ui_assign in html:
+        html = html.replace(old_update_ui_assign, new_update_ui_assign, 1)
+
     # 1. 注入 CSS 樣式
     css_to_insert = """
         /* V8.5 新增：訊號通知中心與推播按鈕樣式 */
