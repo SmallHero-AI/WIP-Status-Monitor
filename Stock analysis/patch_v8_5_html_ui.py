@@ -285,7 +285,6 @@ def patch():
                     <span style="background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); padding: 4px 12px; border-radius: 8px; font-size: 0.85rem;">⚠️ 今日新觸發離場: <strong id="holding_page_cnt_exit" style="font-size: 0.95rem;">0</strong> 檔</span>
                     <span style="background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); padding: 4px 12px; border-radius: 8px; font-size: 0.85rem;">📦 現正持倉中: <strong id="holding_page_cnt_holding" style="font-size: 0.95rem;">0</strong> 檔</span>
                 </div>
-                <button class="btn-signal-center" onclick="openSignalCenterModal()" style="font-size: 0.8rem; padding: 6px 14px;">🔍 開啟詳細訊號通知中心</button>
             </div>"""
     if old_holding_title in html:
         html = html.replace(old_holding_title, new_holding_title, 1)
