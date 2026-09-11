@@ -116,18 +116,18 @@ def main():
         new_xlsx[f's{code}_ai'] = actual_filename
 
     base_stocks = [
-        { 'id': 's2330', 'name': '台積電', 'strategy': 'v4', 'filename': '2330_台積電_V4_高勝率回測.xlsx', 'type': 'long' },
-        { 'id': 's2360', 'name': '致茂', 'strategy': 'v4', 'filename': '2360_致茂_V4_高勝率回測.xlsx', 'type': 'long' },
-        { 'id': 's6205', 'name': '詮欣', 'strategy': 'v4', 'filename': '6205_詮欣_V4_高勝率回測.xlsx', 'type': 'long' },
-        { 'id': 's6274', 'name': '台耀', 'strategy': 'v4', 'filename': '6274_台耀_V4_高勝率回測.xlsx', 'type': 'long' },
-        { 'id': 's6669', 'name': '緯穎', 'strategy': 'rebound', 'filename': '6669_緯穎_V_Rebound_高勝率回測.xlsx', 'type': 'long' },
-        { 'id': 's3189', 'name': '景碩', 'strategy': 'rebound', 'filename': '3189_景碩_V_Rebound_高勝率回測.xlsx', 'type': 'long' },
-        { 'id': 's3455', 'name': '由田', 'strategy': 'rebound', 'filename': '3455_由田_V_Rebound_高勝率回測.xlsx', 'type': 'long' },
-        { 'id': 's3535', 'name': '晶彩科', 'strategy': 'rebound', 'filename': '3535_晶彩科_V_Rebound_高勝率回測.xlsx', 'type': 'long' },
-        { 'id': 's4908', 'name': '前鼎', 'strategy': 'rebound', 'filename': '4908_前鼎_V_Rebound_高勝率回測.xlsx', 'type': 'long' },
-        { 'id': 's6269', 'name': '台郡', 'strategy': 'rebound', 'filename': '6269_台郡_V_Rebound_高勝率回測.xlsx', 'type': 'long' },
-        { 'id': 's3443', 'name': '創意', 'strategy': 'v38', 'filename': '3443_創意_V_Rebound_高勝率回測.xlsx', 'type': 'long' },
-        { 'id': 's6261', 'name': '久元', 'strategy': 'dipbuy', 'filename': '6261_久元_V_Dip_Buy_高勝率回測.xlsx', 'type': 'long' }
+        { 'id': 's2330', 'name': '台積電', 'strategy': 'v4', 'filename': '2330_台積電_V4_高勝率回測.xlsx', 'type': 'long', 'tp': 6.0, 'sl': 6.0 },
+        { 'id': 's2360', 'name': '致茂', 'strategy': 'v4', 'filename': '2360_致茂_V4_高勝率回測.xlsx', 'type': 'long', 'tp': 6.0, 'sl': 6.0 },
+        { 'id': 's6205', 'name': '詮欣', 'strategy': 'v4', 'filename': '6205_詮欣_V4_高勝率回測.xlsx', 'type': 'long', 'tp': 6.0, 'sl': 6.0 },
+        { 'id': 's6274', 'name': '台耀', 'strategy': 'v4', 'filename': '6274_台耀_V4_高勝率回測.xlsx', 'type': 'long', 'tp': 6.0, 'sl': 6.0 },
+        { 'id': 's6669', 'name': '緯穎', 'strategy': 'rebound', 'filename': '6669_緯穎_V_Rebound_高勝率回測.xlsx', 'type': 'long', 'tp': 6.0, 'sl': 6.0 },
+        { 'id': 's3189', 'name': '景碩', 'strategy': 'rebound', 'filename': '3189_景碩_V_Rebound_高勝率回測.xlsx', 'type': 'long', 'tp': 6.0, 'sl': 6.0 },
+        { 'id': 's3455', 'name': '由田', 'strategy': 'rebound', 'filename': '3455_由田_V_Rebound_高勝率回測.xlsx', 'type': 'long', 'tp': 6.0, 'sl': 6.0 },
+        { 'id': 's3535', 'name': '晶彩科', 'strategy': 'rebound', 'filename': '3535_晶彩科_V_Rebound_高勝率回測.xlsx', 'type': 'long', 'tp': 6.0, 'sl': 6.0 },
+        { 'id': 's4908', 'name': '前鼎', 'strategy': 'rebound', 'filename': '4908_前鼎_V_Rebound_高勝率回測.xlsx', 'type': 'long', 'tp': 6.0, 'sl': 6.0 },
+        { 'id': 's6269', 'name': '台郡', 'strategy': 'rebound', 'filename': '6269_台郡_V_Rebound_高勝率回測.xlsx', 'type': 'long', 'tp': 6.0, 'sl': 6.0 },
+        { 'id': 's3443', 'name': '創意', 'strategy': 'v38', 'filename': '3443_創意_V_Rebound_高勝率回測.xlsx', 'type': 'long', 'tp': 6.0, 'sl': 6.0 },
+        { 'id': 's6261', 'name': '久元', 'strategy': 'dipbuy', 'filename': '6261_久元_V_Dip_Buy_高勝率回測.xlsx', 'type': 'long', 'tp': 6.0, 'sl': 6.0 }
     ]
     all_stocks = base_stocks + new_stocks
 

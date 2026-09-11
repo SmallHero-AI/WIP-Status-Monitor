@@ -413,10 +413,39 @@ def patch():
     if old_panel_func in html:
         html = html.replace(old_panel_func, new_panel_func, 1)
 
-    # 6. 注入 JavaScript 邏輯 (表格呈現與停利停損價智慧計算)
+    # 6. 注入 JavaScript 邏輯 (表格呈現與停利停損價智慧計算、動態讀取 DOM 停利停損、即時監聽事件)
     js_to_insert = """
         // V8.5 三態訊號通知中心與表格渲染邏輯
         let currentSignalTab = 'ENTRY';
+
+        function getHoldingTpSl(code, defaultTp, defaultSl) {
+            const cleanCode = String(code).replace('s', '').replace('_ai', '');
+            const possibleTpIds = [`s${cleanCode}_tp`, `${cleanCode}_tp`, `s${cleanCode}_ai_tp`, `${cleanCode}_ai_tp`];
+            const possibleSlIds = [`s${cleanCode}_sl`, `${cleanCode}_sl`, `s${cleanCode}_ai_sl`, `${cleanCode}_ai_sl`];
+
+            let tpPct = null;
+            let slPct = null;
+
+            for (const id of possibleTpIds) {
+                const el = document.getElementById(id);
+                if (el && el.value !== '' && !isNaN(parseFloat(el.value))) {
+                    tpPct = parseFloat(el.value);
+                    break;
+                }
+            }
+            for (const id of possibleSlIds) {
+                const el = document.getElementById(id);
+                if (el && el.value !== '' && !isNaN(parseFloat(el.value))) {
+                    slPct = parseFloat(el.value);
+                    break;
+                }
+            }
+
+            if (tpPct === null) tpPct = (defaultTp !== undefined && defaultTp !== null) ? parseFloat(defaultTp) : 6.0;
+            if (slPct === null) slPct = (defaultSl !== undefined && defaultSl !== null) ? parseFloat(defaultSl) : 6.0;
+
+            return { tpPct, slPct };
+        }
 
         function initV85SignalCenter() {
             if (typeof preloadedStocks === 'undefined') return;
@@ -426,10 +455,40 @@ def patch():
             let holdingCnt = 0;
 
             preloadedStocks.forEach(s => {
+                const stockCode = s.id.replace('s', '').replace('_ai', '');
+                const tpSl = getHoldingTpSl(stockCode, s.tp, s.sl);
+                const isShort = s.type === 'short';
+                
+                let buyP = s.holding ? s.holding.buyPrice : (s.signalInfo ? s.signalInfo.entryPrice || s.signalInfo.buyPrice : 0);
+                let currP = s.holding ? s.holding.currentPrice : (s.signalInfo ? s.signalInfo.currentPrice : 0);
+
+                let isTp = false;
+                let isSl = false;
+
+                if (buyP > 0 && currP > 0) {
+                    let tpVal = buyP * (1 + (isShort ? -1 : 1) * (tpSl.tpPct / 100));
+                    let slVal = buyP * (1 + (isShort ? 1 : -1) * (tpSl.slPct / 100));
+
+                    if (!isShort) {
+                        if (currP >= tpVal) isTp = true;
+                        if (currP <= slVal) isSl = true;
+                    } else {
+                        if (currP <= tpVal) isTp = true;
+                        if (currP >= slVal) isSl = true;
+                    }
+                }
+
                 if (s.signalInfo) {
-                    if (s.signalInfo.status === 'TRIGGER_ENTRY') entryCnt++;
-                    else if (s.signalInfo.status === 'TRIGGER_EXIT') exitCnt++;
-                    else if (s.signalInfo.status === 'HOLDING') holdingCnt++;
+                    if (isTp || isSl || s.signalInfo.status === 'TRIGGER_EXIT') {
+                        exitCnt++;
+                    } else if (s.signalInfo.status === 'TRIGGER_ENTRY') {
+                        entryCnt++;
+                    } else {
+                        holdingCnt++;
+                    }
+                } else if (s.holding) {
+                    if (isTp || isSl) exitCnt++;
+                    else holdingCnt++;
                 }
             });
 
@@ -455,6 +514,133 @@ def patch():
             if (hpExit) hpExit.innerText = exitCnt;
             if (hpHolding) hpHolding.innerText = holdingCnt;
         }
+
+        // 覆蓋重寫持倉總覽面板渲染函數，支援動態讀取 DOM 停利停損 % 與即時警示標籤
+        window.updateHoldingSummaryPanel = function() {
+            const tableBody = document.querySelector('#holding_summary_table tbody');
+            if (!tableBody) return;
+
+            let holdings = typeof activeHoldings !== 'undefined' ? Object.values(activeHoldings) : [];
+
+            holdings.sort((a, b) => {
+                let valA, valB;
+                switch (currentHoldingSortField) {
+                    case 'name':
+                        valA = (a.code + a.name).toLowerCase();
+                        valB = (b.code + b.name).toLowerCase();
+                        break;
+                    case 'buyDate':
+                        valA = a.buyDate;
+                        valB = b.buyDate;
+                        break;
+                    case 'buyPrice':
+                        valA = a.buyPrice;
+                        valB = b.buyPrice;
+                        break;
+                    case 'currentPrice':
+                        valA = a.currentPrice;
+                        valB = b.currentPrice;
+                        break;
+                    case 'pnl':
+                        valA = a.pnl;
+                        valB = b.pnl;
+                        break;
+                    default:
+                        valA = a.buyDate;
+                        valB = b.buyDate;
+                }
+                if (valA < valB) return currentHoldingSortAsc ? -1 : 1;
+                if (valA > valB) return currentHoldingSortAsc ? 1 : -1;
+                return 0;
+            });
+
+            const sortFields = ['name', 'buyDate', 'buyPrice', 'currentPrice', 'pnl'];
+            sortFields.forEach(f => {
+                const iconSpan = document.getElementById('sort_icon_' + f);
+                if (iconSpan) {
+                    iconSpan.textContent = (f === currentHoldingSortField) ? (currentHoldingSortAsc ? '▲' : '▼') : '';
+                }
+            });
+
+            if (holdings.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="12" style="text-align:center; padding:15px; color:var(--text-muted);">📭 目前無策略持倉</td></tr>`;
+            } else {
+                tableBody.innerHTML = holdings.map(h => {
+                    const isWin = h.pnl >= 0;
+                    const sign = isWin ? '+' : '';
+                    const color = isWin ? '#10b981' : '#ef4444';
+
+                    const typeText = h.posType || '多單';
+                    const isShort = typeText === '空單';
+                    const icon = isShort ? '📉' : '📈';
+
+                    const buyP = h.buyPrice || 0;
+                    const currP = h.currentPrice || buyP;
+                    const stockObj = (typeof preloadedStocks !== 'undefined') ? preloadedStocks.find(s => s.id.replace('s','').replace('_ai','') === h.code) : null;
+                    const sigObj = stockObj ? stockObj.signalInfo : null;
+
+                    // 動態優先讀取 DOM 停利停損輸入框數值
+                    const defaultTp = stockObj ? stockObj.tp : 6.0;
+                    const defaultSl = stockObj ? stockObj.sl : 6.0;
+                    const tpSl = getHoldingTpSl(h.code, defaultTp, defaultSl);
+                    const tpPct = tpSl.tpPct;
+                    const slPct = tpSl.slPct;
+
+                    let tpVal = buyP > 0 ? buyP * (1 + (isShort ? -1 : 1) * (tpPct / 100)) : 0;
+                    let slVal = buyP > 0 ? buyP * (1 + (isShort ? 1 : -1) * (slPct / 100)) : 0;
+
+                    const tpText = tpVal > 0 ? `$${tpVal.toFixed(1)} (${isShort ? '-' : '+'}${tpPct}%)` : '-';
+                    const slText = slVal > 0 ? `$${slVal.toFixed(1)} (${isShort ? '+' : '-'}${slPct}%)` : '-';
+
+                    // 判斷是否即時觸發新設定的停利 / 停損價
+                    let isTpTriggered = false;
+                    let isSlTriggered = false;
+
+                    if (buyP > 0 && currP > 0) {
+                        if (!isShort) {
+                            if (tpVal > 0 && currP >= tpVal) isTpTriggered = true;
+                            if (slVal > 0 && currP <= slVal) isSlTriggered = true;
+                        } else {
+                            if (tpVal > 0 && currP <= tpVal) isTpTriggered = true;
+                            if (slVal > 0 && currP >= slVal) isSlTriggered = true;
+                        }
+                    }
+
+                    let sigTag = '<span style="font-size:0.75rem; font-weight:700; padding:2px 6px; border-radius:4px; background:rgba(59,130,246,0.2); color:#60a5fa;">📦 續抱中</span>';
+                    if (isTpTriggered) {
+                        sigTag = '<span style="font-size:0.75rem; font-weight:700; padding:2px 6px; border-radius:4px; background:rgba(16,185,129,0.2); color:#34d399;">🎯 達標停利(明日平倉)</span>';
+                    } else if (isSlTriggered) {
+                        sigTag = '<span style="font-size:0.75rem; font-weight:700; padding:2px 6px; border-radius:4px; background:rgba(239,68,68,0.25); color:#f87171;">🛑 觸發停損(明日平倉)</span>';
+                    } else if (sigObj && sigObj.status === 'TRIGGER_EXIT') {
+                        if (sigObj.exitReasonType === 'TAKE_PROFIT') {
+                            sigTag = '<span style="font-size:0.75rem; font-weight:700; padding:2px 6px; border-radius:4px; background:rgba(16,185,129,0.2); color:#34d399;">🎯 達標停利(明日平倉)</span>';
+                        } else if (sigObj.exitReasonType === 'STOP_LOSS') {
+                            sigTag = '<span style="font-size:0.75rem; font-weight:700; padding:2px 6px; border-radius:4px; background:rgba(239,68,68,0.25); color:#f87171;">🛑 觸發停損(明日平倉)</span>';
+                        } else {
+                            sigTag = '<span style="font-size:0.75rem; font-weight:700; padding:2px 6px; border-radius:4px; background:rgba(245,158,11,0.2); color:#fbbf24;">⚠️ 指標離場(明日平倉)</span>';
+                        }
+                    }
+
+                    return `
+                        <tr>
+                            <td><input type="checkbox" class="holding-checkbox" checked onchange="calculateHoldingTotalPnl()" data-pnl="${h.pnl}" data-cost="${h.buyPrice * h.shares * 1000}"></td>
+                            <td><span style="font-size:0.8rem; font-weight:700; padding:3px 8px; border-radius:4px; background:${isShort ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)'}; color:${isShort ? '#10b981' : '#ef4444'};">${icon} ${typeText}</span></td>
+                            <td style="font-weight:700;">${h.code} ${h.name}</td>
+                            <td>${h.buyDate}</td>
+                            <td>$${h.buyPrice.toFixed(1)}</td>
+                            <td>$${h.currentPrice.toFixed(1)}</td>
+                            <td>${h.shares}</td>
+                            <td style="color:${color}; font-weight:700;">${sign}$${Math.round(h.pnl).toLocaleString()} <br><small>(${sign}${h.roi.toFixed(2)}%)</small></td>
+                            <td style="color:#4ade80; font-weight:700;">${tpText}</td>
+                            <td style="color:#f87171; font-weight:700;">${slText}</td>
+                            <td>${sigTag}</td>
+                            <td><button onclick="removeHoldingPosition('${h.uniqueId}')" style="padding:4px 8px; background:#ef4444; border:none; border-radius:4px; color:white; font-size:0.75rem; cursor:pointer;">移除</button></td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+            if (typeof calculateHoldingTotalPnl === 'function') calculateHoldingTotalPnl();
+        };
 
         function openSignalCenterModal() {
             const m = document.getElementById('modal_signal_center');
@@ -531,13 +717,12 @@ def patch():
                     const icon = isShort ? '📉' : '📈';
                     
                     const buyP = sig.targetEntryPrice || sig.currentPrice || s.buyPrice || 0;
-                    let rawTp = sig.tpPrice;
-                    let rawSl = sig.slPrice;
-                    let tpPct = s.tp || 6.0;
-                    let slPct = s.sl || 6.0;
+                    const tpSl = getHoldingTpSl(stockCode, s.tp, s.sl);
+                    let tpPct = tpSl.tpPct;
+                    let slPct = tpSl.slPct;
 
-                    let tpVal = rawTp ? rawTp : (buyP > 0 ? buyP * (1 + (isShort ? -1 : 1) * (tpPct / 100)) : 0);
-                    let slVal = rawSl ? rawSl : (buyP > 0 ? buyP * (1 + (isShort ? 1 : -1) * (slPct / 100)) : 0);
+                    let tpVal = buyP > 0 ? buyP * (1 + (isShort ? -1 : 1) * (tpPct / 100)) : 0;
+                    let slVal = buyP > 0 ? buyP * (1 + (isShort ? 1 : -1) * (slPct / 100)) : 0;
 
                     const tpText = tpVal > 0 ? `$${tpVal.toFixed(1)} (${isShort ? '-' : '+'}${tpPct}%)` : '-';
                     const slText = slVal > 0 ? `$${slVal.toFixed(1)} (${isShort ? '+' : '-'}${slPct}%)` : '-';
@@ -622,13 +807,12 @@ def patch():
                     const isWin = roiVal >= 0;
                     const color = isWin ? '#10b981' : '#ef4444';
 
-                    let rawTp = sig.tpPrice || s.holding?.tpPrice;
-                    let rawSl = sig.slPrice || s.holding?.slPrice;
-                    let tpPct = s.tp || 6.0;
-                    let slPct = s.sl || 6.0;
+                    const tpSl = getHoldingTpSl(stockCode, s.tp, s.sl);
+                    let tpPct = tpSl.tpPct;
+                    let slPct = tpSl.slPct;
 
-                    let tpVal = rawTp ? rawTp : (buyP > 0 ? buyP * (1 + (isShort ? -1 : 1) * (tpPct / 100)) : 0);
-                    let slVal = rawSl ? rawSl : (buyP > 0 ? buyP * (1 + (isShort ? 1 : -1) * (slPct / 100)) : 0);
+                    let tpVal = buyP > 0 ? buyP * (1 + (isShort ? -1 : 1) * (tpPct / 100)) : 0;
+                    let slVal = buyP > 0 ? buyP * (1 + (isShort ? 1 : -1) * (slPct / 100)) : 0;
 
                     const tpText = tpVal > 0 ? `$${tpVal.toFixed(1)} (${isShort ? '-' : '+'}${tpPct}%)` : '-';
                     const slText = slVal > 0 ? `$${slVal.toFixed(1)} (${isShort ? '+' : '-'}${slPct}%)` : '-';
@@ -675,8 +859,30 @@ def patch():
             }
         }
 
+        function bindLiveTpSlListeners() {
+            document.querySelectorAll('input[id$="_tp"], input[id$="_sl"]').forEach(input => {
+                if (!input.dataset.boundLive) {
+                    input.dataset.boundLive = 'true';
+                    const handler = () => {
+                        if (typeof window.updateHoldingSummaryPanel === 'function') {
+                            window.updateHoldingSummaryPanel();
+                        }
+                        if (typeof initV85SignalCenter === 'function') {
+                            initV85SignalCenter();
+                        }
+                    };
+                    input.addEventListener('input', handler);
+                    input.addEventListener('change', handler);
+                }
+            });
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
-            setTimeout(initV85SignalCenter, 500);
+            setTimeout(() => {
+                initV85SignalCenter();
+                bindLiveTpSlListeners();
+            }, 500);
+            setInterval(bindLiveTpSlListeners, 2000);
         });
     """
 
