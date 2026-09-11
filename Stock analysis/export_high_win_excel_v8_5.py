@@ -584,9 +584,18 @@ def main():
         user_out_path = os.path.join(SCRIPT_DIR, excel_name)
         server_out_path = os.path.join(SERVER_DATA_DIR, excel_name)
         
-        wb.save(user_out_path)
-        shutil.copy2(user_out_path, server_out_path)
-        print(f"  [成功 V8.5] 產出並複製：{excel_name} (型態: {pos_type_text})")
+        try:
+            wb.save(user_out_path)
+            shutil.copy2(user_out_path, server_out_path)
+            print(f"  [成功 V8.5] 產出並複製：{excel_name} (型態: {pos_type_text})")
+        except PermissionError:
+            try:
+                wb.save(server_out_path)
+                print(f"  [警告 V8.5] {excel_name} 本地端已被 Excel 開啟佔用，已直接儲存至 Server 區")
+            except Exception as e:
+                print(f"  [失敗 V8.5] 儲存 {excel_name} 失敗 (檔案被開啟佔用): {e}")
+        except Exception as e:
+            print(f"  [失敗 V8.5] 儲存 {excel_name} 失敗: {e}")
 
     print("\n[完成] 所有勝率 75% 以上個股的 V8.5 回測 EXCEL 檔案已成功產出與複製！")
 
