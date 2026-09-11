@@ -73,12 +73,19 @@ def patch():
                             posType: item.holding.posType || '多單',
                             type: item.type || 'long',
                             tpPrice: item.holding.tpPrice || (item.signalInfo ? item.signalInfo.tpPrice : null),
-                            slPrice: item.holding.slPrice || (item.signalInfo ? item.signalInfo.slPrice : null)
+                            slPrice: item.holding.slPrice || (item.signalInfo ? item.signalInfo.slPrice : null),
+                            isPreloadedHolding: true
                         };
                     }"""
 
     if old_active_holding_init in html:
         html = html.replace(old_active_holding_init, new_active_holding_init, 1)
+
+    # 防護：點擊「查看」切換個股時，避免 updateUI 因客戶端預設參數重算無持倉而誤刪伺服器 V8.5 預載的持倉
+    html = html.replace(
+        "            } else {\n                delete activeHoldings[pre];\n            }",
+        "            } else {\n                if (!activeHoldings[pre] || !activeHoldings[pre].isPreloadedHolding) {\n                    delete activeHoldings[pre];\n                }\n            }"
+    )
 
     # 1. 注入 CSS 樣式
     css_to_insert = """
