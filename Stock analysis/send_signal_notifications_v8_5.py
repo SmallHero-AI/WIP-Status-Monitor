@@ -125,24 +125,29 @@ def main():
         tpVal = 0.0
         slVal = 0.0
 
-        if buyP > 0 and currP > 0:
+        tpVal = (sig.get("tpPrice") if sig else None) or (hd.get("tpPrice") if hd else None)
+        slVal = (sig.get("slPrice") if sig else None) or (hd.get("slPrice") if hd else None)
+
+        if (tpVal is None or slVal is None) and buyP > 0:
             tpVal = buyP * (1 + (-1 if isShort else 1) * (tpPct / 100))
             slVal = buyP * (1 + (1 if isShort else -1) * (slPct / 100))
+
+        if buyP > 0 and currP > 0 and tpVal is not None and slVal is not None:
             if not isShort:
-                if tpVal > 0 and currP >= tpVal: isTp = True
-                if slVal > 0 and currP <= slVal: isSl = True
+                if currP >= tpVal: isTp = True
+                if currP <= slVal: isSl = True
             else:
-                if tpVal > 0 and currP <= tpVal: isTp = True
-                if slVal > 0 and currP >= slVal: isSl = True
+                if currP <= tpVal: isTp = True
+                if currP >= slVal: isSl = True
 
         status = sig.get("status") if sig else None
 
         if sig:
             if isTp or isSl or status == "TRIGGER_EXIT":
                 if isTp:
-                    item["_exit_reason"] = f"🎯 達標停利 (現價 ${currP:.1f} 達預計停利價 ${tpVal:.1f})"
+                    item["_exit_reason"] = f"🎯 達標停利 (現價 ${currP:.2f} 達預計停利價 ${tpVal:.2f})"
                 elif isSl:
-                    item["_exit_reason"] = f"🛑 觸發停損 (現價 ${currP:.1f} 觸及預計停損價 ${slVal:.1f})"
+                    item["_exit_reason"] = f"🛑 觸發停損 (現價 ${currP:.2f} 觸及預計停損價 ${slVal:.2f})"
                 else:
                     item["_exit_reason"] = sig.get("reason", "指標轉弱觸發離場")
                 trigger_exits.append(item)
@@ -153,9 +158,9 @@ def main():
         elif hd:
             if isTp or isSl:
                 if isTp:
-                    item["_exit_reason"] = f"🎯 達標停利 (現價 ${currP:.1f} 達預計停利價 ${tpVal:.1f})"
+                    item["_exit_reason"] = f"🎯 達標停利 (現價 ${currP:.2f} 達預計停利價 ${tpVal:.2f})"
                 elif isSl:
-                    item["_exit_reason"] = f"🛑 觸發停損 (現價 ${currP:.1f} 觸及預計停損價 ${slVal:.1f})"
+                    item["_exit_reason"] = f"🛑 觸發停損 (現價 ${currP:.2f} 觸及預計停損價 ${slVal:.2f})"
                 trigger_exits.append(item)
             else:
                 current_holdings.append(item)
