@@ -634,7 +634,7 @@ def patch():
                             <td style="color:#4ade80; font-weight:700;">${tpText}</td>
                             <td style="color:#f87171; font-weight:700;">${slText}</td>
                             <td>${sigTag}</td>
-                            <td><button onclick="removeHoldingPosition('${h.uniqueId}')" style="padding:4px 8px; background:#ef4444; border:none; border-radius:4px; color:white; font-size:0.75rem; cursor:pointer;">移除</button></td>
+                            <td><button class="tab-btn" style="padding: 4px 10px; font-size: 0.8rem; background: #6366f1; border: none; border-radius: 4px; color: white; cursor: pointer;" onclick="selectStockTab('${h.uniqueId}', '${h.uniqueId}', '${h.name}', '${getStrategyIdByUniqueId(h.uniqueId)}', '${h.uniqueId.startsWith('custom_') ? 'custom' : 'preload'}')">查看</button></td>
                         </tr>
                     `;
                 }).join('');
