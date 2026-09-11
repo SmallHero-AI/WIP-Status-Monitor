@@ -167,12 +167,12 @@ def main():
 
     today_str = datetime.date.today().strftime("%Y-%m-%d")
 
-    # 解析最新 K 線行情實際觸發日期
+    # 解析最新 K 線行情實際觸發日期 (優先從觸發進出場訊號取得 triggerDate，避免抓到舊持倉 buyDate)
     latest_k_date = None
-    all_sigs = trigger_entries + trigger_exits + current_holdings
-    if all_sigs:
-        sample_sig = (all_sigs[0].get("signalInfo") or {})
-        raw_d = str(sample_sig.get("triggerDate") or sample_sig.get("buyDate") or "").replace("-", "")
+    active_triggers = trigger_entries + trigger_exits
+    if active_triggers:
+        sample_sig = (active_triggers[0].get("signalInfo") or {})
+        raw_d = str(sample_sig.get("triggerDate") or "").replace("-", "")
         if len(raw_d) == 8:
             latest_k_date = f"{raw_d[:4]}-{raw_d[4:6]}-{raw_d[6:]}"
 
