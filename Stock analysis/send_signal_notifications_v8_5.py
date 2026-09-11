@@ -109,34 +109,71 @@ def main():
 
     for item in leaderboard:
         sig = item.get("signalInfo")
-        if not sig:
+        hd = item.get("holding")
+        if not sig and not hd:
             continue
-        status = sig.get("status")
-        if status == "TRIGGER_ENTRY":
-            trigger_entries.append(item)
-        elif status == "TRIGGER_EXIT":
-            trigger_exits.append(item)
-        elif status == "HOLDING":
-            current_holdings.append(item)
+
+        tpPct = item.get("tp", 6.0)
+        slPct = item.get("sl", 6.0)
+        isShort = item.get("type") == "short"
+
+        buyP = hd.get("buyPrice", 0) if hd else (sig.get("entryPrice") or sig.get("buyPrice", 0) if sig else 0)
+        currP = hd.get("currentPrice", 0) if hd else (sig.get("currentPrice", 0) if sig else 0)
+
+        isTp = False
+        isSl = False
+        tpVal = 0.0
+        slVal = 0.0
+
+        if buyP > 0 and currP > 0:
+            tpVal = buyP * (1 + (-1 if isShort else 1) * (tpPct / 100))
+            slVal = buyP * (1 + (1 if isShort else -1) * (slPct / 100))
+            if not isShort:
+                if tpVal > 0 and currP >= tpVal: isTp = True
+                if slVal > 0 and currP <= slVal: isSl = True
+            else:
+                if tpVal > 0 and currP <= tpVal: isTp = True
+                if slVal > 0 and currP >= slVal: isSl = True
+
+        status = sig.get("status") if sig else None
+
+        if sig:
+            if isTp or isSl or status == "TRIGGER_EXIT":
+                if isTp:
+                    item["_exit_reason"] = f"🎯 達標停利 (現價 ${currP:.1f} 達預計停利價 ${tpVal:.1f})"
+                elif isSl:
+                    item["_exit_reason"] = f"🛑 觸發停損 (現價 ${currP:.1f} 觸及預計停損價 ${slVal:.1f})"
+                else:
+                    item["_exit_reason"] = sig.get("reason", "指標轉弱觸發離場")
+                trigger_exits.append(item)
+            elif status == "TRIGGER_ENTRY":
+                trigger_entries.append(item)
+            else:
+                current_holdings.append(item)
+        elif hd:
+            if isTp or isSl:
+                if isTp:
+                    item["_exit_reason"] = f"🎯 達標停利 (現價 ${currP:.1f} 達預計停利價 ${tpVal:.1f})"
+                elif isSl:
+                    item["_exit_reason"] = f"🛑 觸發停損 (現價 ${currP:.1f} 觸及預計停損價 ${slVal:.1f})"
+                trigger_exits.append(item)
+            else:
+                current_holdings.append(item)
 
     today_str = datetime.date.today().strftime("%Y-%m-%d")
 
     # 解析最新 K 線行情實際觸發日期
     latest_k_date = None
-    all_sigs = trigger_entries + trigger_exits
+    all_sigs = trigger_entries + trigger_exits + current_holdings
     if all_sigs:
-        sample_sig = all_sigs[0].get("signalInfo", {})
-        raw_d = str(sample_sig.get("triggerDate", "")).replace("-", "")
+        sample_sig = (all_sigs[0].get("signalInfo") or {})
+        raw_d = str(sample_sig.get("triggerDate") or sample_sig.get("buyDate") or "").replace("-", "")
         if len(raw_d) == 8:
             latest_k_date = f"{raw_d[:4]}-{raw_d[4:6]}-{raw_d[6:]}"
 
     data_date_str = latest_k_date if latest_k_date else today_str
 
     print(f"[統計] 最新行情日期({data_date_str}) - 觸發進場: {len(trigger_entries)} 檔, 觸發出場: {len(trigger_exits)} 檔, 持倉中: {len(current_holdings)} 檔")
-
-    if not trigger_entries and not trigger_exits:
-        print("💡 目前行情資料無新增觸發之進出場訊號，跳過推播訊息發送。")
-        return
 
     # 生成當日訊號指紋
     entry_codes = sorted([x['code'] for x in trigger_entries])
@@ -163,7 +200,7 @@ def main():
     if trigger_entries:
         msg_lines.append("🔥 【今日剛觸發進場 (預計明日開盤執行)】")
         for idx, item in enumerate(trigger_entries[:8], 1): # 最多列出前8檔避免超長
-            sig = item["signalInfo"]
+            sig = item.get("signalInfo", {})
             direction = sig.get("direction", "多單")
             code = item["code"]
             name = item["name"]
@@ -183,16 +220,33 @@ def main():
     if trigger_exits:
         msg_lines.append("⚠️ 【今日剛觸發平倉 (預計明日開盤執行)】")
         for idx, item in enumerate(trigger_exits[:8], 1):
-            sig = item["signalInfo"]
-            direction = sig.get("direction", "多單")
+            sig = item.get("signalInfo") or {}
+            hd = item.get("holding") or {}
+            direction = sig.get("direction") or (item.get("posType") or "多單")
             code = item["code"]
             name = item["name"]
-            reason = sig.get("reason", "指標觸發")
-            roi = sig.get("roi", 0)
+            reason = item.get("_exit_reason") or sig.get("reason", "指標轉弱觸發離場")
+            roi = sig.get("roi") if (sig and sig.get("roi") is not None) else hd.get("roi", 0)
             msg_lines.append(f"{idx}. {code} {name} ({direction}) | 預估損益率: {roi:+.1f}%")
             msg_lines.append(f"   ► 原因: {reason}")
         if len(trigger_exits) > 8:
             msg_lines.append(f"   ...等共 {len(trigger_exits)} 檔個股觸發離場。\n")
+        else:
+            msg_lines.append("")
+
+    if not trigger_entries and not trigger_exits:
+        msg_lines.append("💡 今日無新增觸發之進出場訊號，策略持倉狀況維持穩定。")
+        msg_lines.append(f"📦 【現正持倉總覽 (共 {len(current_holdings)} 檔)】")
+        for idx, item in enumerate(current_holdings[:5], 1):
+            hd = item.get("holding") or {}
+            sig = item.get("signalInfo") or {}
+            code = item["code"]
+            name = item["name"]
+            direction = hd.get("posType") or sig.get("direction", "多單")
+            roi = hd.get("roi") if (hd and hd.get("roi") is not None) else sig.get("roi", 0)
+            msg_lines.append(f"   {idx}. {code} {name} ({direction}) | 未實現 ROI: {roi:+.1f}%")
+        if len(current_holdings) > 5:
+            msg_lines.append(f"   ...等共 {len(current_holdings)} 檔續抱中。\n")
         else:
             msg_lines.append("")
 
