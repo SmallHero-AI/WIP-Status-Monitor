@@ -463,19 +463,26 @@ def patch():
 
             preloadedStocks.forEach(s => {
                 const stockCode = s.id.replace('s', '').replace('_ai', '');
-                const tpSl = getHoldingTpSl(stockCode, s.tp, s.sl);
-                const isShort = s.type === 'short';
+                const isShort = (s.type === 'short') || (s.holding && s.holding.posType === '空單');
                 
                 let buyP = s.holding ? s.holding.buyPrice : (s.signalInfo ? s.signalInfo.entryPrice || s.signalInfo.buyPrice : 0);
                 let currP = s.holding ? s.holding.currentPrice : (s.signalInfo ? s.signalInfo.currentPrice : 0);
 
+                let tpVal = s.holding ? s.holding.tpPrice : (s.signalInfo ? s.signalInfo.tpPrice : null);
+                let slVal = s.holding ? s.holding.slPrice : (s.signalInfo ? s.signalInfo.slPrice : null);
+
+                if (buyP > 0) {
+                    const tpSl = getHoldingTpSl(stockCode, s.tp, s.sl);
+                    const tpPct = (tpSl.tpPct && tpSl.tpPct > 0) ? tpSl.tpPct : 6.0;
+                    const slPct = (tpSl.slPct && tpSl.slPct > 0) ? tpSl.slPct : 6.0;
+                    if (!tpVal || tpVal <= 0) tpVal = buyP * (1 + (isShort ? -1 : 1) * (tpPct / 100));
+                    if (!slVal || slVal <= 0) slVal = buyP * (1 + (isShort ? 1 : -1) * (slPct / 100));
+                }
+
                 let isTp = false;
                 let isSl = false;
 
-                if (buyP > 0 && currP > 0) {
-                    let tpVal = buyP * (1 + (isShort ? -1 : 1) * (tpSl.tpPct / 100));
-                    let slVal = buyP * (1 + (isShort ? 1 : -1) * (tpSl.slPct / 100));
-
+                if (buyP > 0 && currP > 0 && tpVal > 0 && slVal > 0) {
                     if (!isShort) {
                         if (currP >= tpVal) isTp = true;
                         if (currP <= slVal) isSl = true;

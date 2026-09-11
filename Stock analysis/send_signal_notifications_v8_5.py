@@ -128,8 +128,9 @@ def main():
         tpVal = (sig.get("tpPrice") if sig else None) or (hd.get("tpPrice") if hd else None)
         slVal = (sig.get("slPrice") if sig else None) or (hd.get("slPrice") if hd else None)
 
-        if (tpVal is None or slVal is None) and buyP > 0:
+        if tpVal is None and buyP > 0 and tpPct > 0:
             tpVal = buyP * (1 + (-1 if isShort else 1) * (tpPct / 100))
+        if slVal is None and buyP > 0 and slPct > 0:
             slVal = buyP * (1 + (1 if isShort else -1) * (slPct / 100))
 
         if buyP > 0 and currP > 0 and tpVal is not None and slVal is not None:
