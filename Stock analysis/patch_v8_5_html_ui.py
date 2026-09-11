@@ -642,6 +642,28 @@ def patch():
             if (typeof calculateHoldingTotalPnl === 'function') calculateHoldingTotalPnl();
         };
 
+        window.removeHoldingPosition = function(uniqueId) {
+            if (!uniqueId) return;
+            if (typeof activeHoldings !== 'undefined' && activeHoldings[uniqueId]) {
+                delete activeHoldings[uniqueId];
+            }
+            if (typeof preloadedStocks !== 'undefined') {
+                const item = preloadedStocks.find(s => s.id === uniqueId || s.id.replace('s','').replace('_ai','') === uniqueId);
+                if (item) {
+                    item.holding = null;
+                }
+            }
+            if (typeof updateHoldingSummaryPanel === 'function') {
+                updateHoldingSummaryPanel();
+            }
+            if (typeof initV85SignalCenter === 'function') {
+                initV85SignalCenter();
+            }
+            if (typeof showToast === 'function') {
+                showToast('已成功移除持倉部位', 'info');
+            }
+        };
+
         function openSignalCenterModal() {
             const m = document.getElementById('modal_signal_center');
             if (m) {

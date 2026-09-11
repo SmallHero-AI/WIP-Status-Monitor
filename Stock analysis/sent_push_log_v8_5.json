@@ -6,10 +6,10 @@
     "exits_count": 1
   },
   "2026-09-10": {
-    "sent_time": "2026-09-10 16:26:43",
-    "fingerprint": "2026-09-10_entry:_exit:2312",
+    "sent_time": "2026-09-11 15:43:45",
+    "fingerprint": "2026-09-10_entry:_exit:1309,2360,2889,3311",
     "entries_count": 0,
-    "exits_count": 1
+    "exits_count": 4
   },
   "2026-09-11": {
     "sent_time": "2026-09-11 13:43:08",
