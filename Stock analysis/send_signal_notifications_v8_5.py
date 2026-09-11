@@ -121,32 +121,43 @@ def main():
 
     today_str = datetime.date.today().strftime("%Y-%m-%d")
 
-    print(f"[統計] 今日新觸發進場: {len(trigger_entries)} 檔, 今日新觸發出場: {len(trigger_exits)} 檔, 持倉中: {len(current_holdings)} 檔")
+    # 解析最新 K 線行情實際觸發日期
+    latest_k_date = None
+    all_sigs = trigger_entries + trigger_exits
+    if all_sigs:
+        sample_sig = all_sigs[0].get("signalInfo", {})
+        raw_d = str(sample_sig.get("triggerDate", "")).replace("-", "")
+        if len(raw_d) == 8:
+            latest_k_date = f"{raw_d[:4]}-{raw_d[4:6]}-{raw_d[6:]}"
+
+    data_date_str = latest_k_date if latest_k_date else today_str
+
+    print(f"[統計] 最新行情日期({data_date_str}) - 觸發進場: {len(trigger_entries)} 檔, 觸發出場: {len(trigger_exits)} 檔, 持倉中: {len(current_holdings)} 檔")
 
     if not trigger_entries and not trigger_exits:
-        print("💡 今日無新增觸發之進出場訊號，跳過推播訊息發送。")
+        print("💡 目前行情資料無新增觸發之進出場訊號，跳過推播訊息發送。")
         return
 
     # 生成當日訊號指紋
     entry_codes = sorted([x['code'] for x in trigger_entries])
     exit_codes = sorted([x['code'] for x in trigger_exits])
-    signal_fingerprint = f"{today_str}_entry:{','.join(entry_codes)}_exit:{','.join(exit_codes)}"
+    signal_fingerprint = f"{data_date_str}_entry:{','.join(entry_codes)}_exit:{','.join(exit_codes)}"
 
     # 檢查當日防重複機制
     push_log = load_push_log()
-    today_record = push_log.get(today_str)
+    today_record = push_log.get(data_date_str)
 
     if today_record and not force_send:
         last_fingerprint = today_record.get("fingerprint")
         last_sent_time = today_record.get("sent_time", "未知時間")
         if last_fingerprint == signal_fingerprint:
-            print(f"🛡️ [當日防重複保護] 今日訊號已於 {last_sent_time} 推播完成，自動跳過發送！")
+            print(f"🛡️ [當日防重複保護] {data_date_str} 行情訊號已於 {last_sent_time} 推播完成，自動跳過發送！")
             print("💡 (提示: 若需強制重新推播，請帶入 --force 或 -f 參數執行)")
             return
 
     # 格式化訊息
     msg_lines = [
-        f"📊 【股票量化分析 V8.5】今日最新個股觸發通知 ({today_str})\n"
+        f"📊 【股票量化分析 V8.5】最新個股觸發通知 ({data_date_str} 行情)\n"
     ]
 
     if trigger_entries:
@@ -198,7 +209,7 @@ def main():
             print("✅ [成功] LINE 廣播推播發送成功！所有訂閱用戶均已接收最新警示訊息。")
             # 更新防重複紀錄檔
             now_time_str = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            push_log[today_str] = {
+            push_log[data_date_str] = {
                 "sent_time": now_time_str,
                 "fingerprint": signal_fingerprint,
                 "entries_count": len(trigger_entries),
