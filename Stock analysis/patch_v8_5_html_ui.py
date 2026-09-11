@@ -593,30 +593,42 @@ def patch():
                     const stockObj = (typeof preloadedStocks !== 'undefined') ? preloadedStocks.find(s => s.id.replace('s','').replace('_ai','') === h.code) : null;
                     const sigObj = stockObj ? stockObj.signalInfo : null;
 
-                    // 動態優先讀取 DOM 停利停損輸入框數值
-                    const defaultTp = stockObj ? stockObj.tp : 6.0;
-                    const defaultSl = stockObj ? stockObj.sl : 6.0;
+                    // 動態讀取持倉/策略目標價與 DOM 停利停損數值
+                    const defaultTp = (stockObj && stockObj.tp > 0) ? stockObj.tp : 6.0;
+                    const defaultSl = (stockObj && stockObj.sl > 0) ? stockObj.sl : 6.0;
                     const tpSl = getHoldingTpSl(h.code, defaultTp, defaultSl);
-                    const tpPct = tpSl.tpPct;
-                    const slPct = tpSl.slPct;
+                    let tpPct = (tpSl.tpPct && tpSl.tpPct > 0) ? tpSl.tpPct : 6.0;
+                    let slPct = (tpSl.slPct && tpSl.slPct > 0) ? tpSl.slPct : 6.0;
 
-                    let tpVal = buyP > 0 ? buyP * (1 + (isShort ? -1 : 1) * (tpPct / 100)) : 0;
-                    let slVal = buyP > 0 ? buyP * (1 + (isShort ? 1 : -1) * (slPct / 100)) : 0;
+                    let tpVal = h.tpPrice || (sigObj ? sigObj.tpPrice : null);
+                    let slVal = h.slPrice || (sigObj ? sigObj.slPrice : null);
 
-                    const tpText = tpVal > 0 ? `$${tpVal.toFixed(1)} (${isShort ? '-' : '+'}${tpPct}%)` : '-';
-                    const slText = slVal > 0 ? `$${slVal.toFixed(1)} (${isShort ? '+' : '-'}${slPct}%)` : '-';
+                    if ((!tpVal || tpVal <= 0) && buyP > 0) {
+                        tpVal = buyP * (1 + (isShort ? -1 : 1) * (tpPct / 100));
+                    } else if (tpVal > 0 && buyP > 0) {
+                        tpPct = Math.abs((tpVal - buyP) / buyP * 100);
+                    }
+
+                    if ((!slVal || slVal <= 0) && buyP > 0) {
+                        slVal = buyP * (1 + (isShort ? 1 : -1) * (slPct / 100));
+                    } else if (slVal > 0 && buyP > 0) {
+                        slPct = Math.abs((buyP - slVal) / buyP * 100);
+                    }
+
+                    const tpText = tpVal > 0 ? `$${tpVal.toFixed(1)} (${isShort ? '-' : '+'}${tpPct.toFixed(0)}%)` : '-';
+                    const slText = slVal > 0 ? `$${slVal.toFixed(1)} (${isShort ? '+' : '-'}${slPct.toFixed(0)}%)` : '-';
 
                     // 判斷是否即時觸發新設定的停利 / 停損價
                     let isTpTriggered = false;
                     let isSlTriggered = false;
 
-                    if (buyP > 0 && currP > 0) {
+                    if (buyP > 0 && currP > 0 && tpVal > 0 && slVal > 0) {
                         if (!isShort) {
-                            if (tpVal > 0 && currP >= tpVal) isTpTriggered = true;
-                            if (slVal > 0 && currP <= slVal) isSlTriggered = true;
+                            if (currP >= tpVal) isTpTriggered = true;
+                            if (currP <= slVal) isSlTriggered = true;
                         } else {
-                            if (tpVal > 0 && currP <= tpVal) isTpTriggered = true;
-                            if (slVal > 0 && currP >= slVal) isSlTriggered = true;
+                            if (currP <= tpVal) isTpTriggered = true;
+                            if (currP >= slVal) isSlTriggered = true;
                         }
                     }
 
