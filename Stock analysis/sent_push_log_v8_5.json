@@ -16,5 +16,11 @@
     "fingerprint": "2026-09-11_entry:_exit:",
     "entries_count": 0,
     "exits_count": 0
+  },
+  "2026-09-14": {
+    "sent_time": "2026-09-14 16:18:49",
+    "fingerprint": "2026-09-14_entry:2453,3046_exit:2889,4148",
+    "entries_count": 2,
+    "exits_count": 2
   }
 }
