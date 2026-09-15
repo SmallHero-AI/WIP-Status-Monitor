@@ -76,6 +76,24 @@ def patch():
                             slPrice: item.holding.slPrice || (item.signalInfo ? item.signalInfo.slPrice : null),
                             isPreloadedHolding: true
                         };
+                    } else if (item.signalInfo && item.signalInfo.status === 'TRIGGER_ENTRY') {
+                        activeHoldings[uniqueId] = {
+                            code: item.code,
+                            name: item.name,
+                            buyDate: (item.signalInfo.triggerDate || '今日') + ' (🔥 今日觸發)',
+                            buyPrice: 0,
+                            currentPrice: item.signalInfo.currentPrice || item.signalInfo.targetEntryPrice || 0,
+                            pnl: 0,
+                            roi: 0,
+                            shares: 1,
+                            uniqueId: uniqueId,
+                            posType: item.signalInfo.direction || (item.type === 'short' ? '空單' : '多單'),
+                            type: item.type || 'long',
+                            tpPrice: item.signalInfo.tpPrice || null,
+                            slPrice: item.signalInfo.slPrice || null,
+                            isPreloadedHolding: true,
+                            isTriggerEntry: true
+                        };
                     }"""
 
     if old_active_holding_init in html:
@@ -613,6 +631,7 @@ def patch():
                 tableBody.innerHTML = `<tr><td colspan="12" style="text-align:center; padding:15px; color:var(--text-muted);">📭 目前無策略持倉</td></tr>`;
             } else {
                 tableBody.innerHTML = holdings.map(h => {
+                    const isTriggerEntry = h.isTriggerEntry || (h.buyPrice <= 0);
                     const isWin = h.pnl >= 0;
                     const sign = isWin ? '+' : '';
                     const color = isWin ? '#10b981' : '#ef4444';
@@ -636,60 +655,78 @@ def patch():
                     let tpVal = h.tpPrice || (sigObj ? sigObj.tpPrice : null);
                     let slVal = h.slPrice || (sigObj ? sigObj.slPrice : null);
 
-                    if ((!tpVal || tpVal <= 0) && buyP > 0) {
-                        tpVal = buyP * (1 + (isShort ? -1 : 1) * (tpPct / 100));
-                    } else if (tpVal > 0 && buyP > 0) {
-                        tpPct = Math.abs((tpVal - buyP) / buyP * 100);
+                    const basePrice = (buyP > 0) ? buyP : currP;
+
+                    if ((!tpVal || tpVal <= 0) && basePrice > 0) {
+                        tpVal = basePrice * (1 + (isShort ? -1 : 1) * (tpPct / 100));
+                    } else if (tpVal > 0 && basePrice > 0) {
+                        tpPct = Math.abs((tpVal - basePrice) / basePrice * 100);
                     }
 
-                    if ((!slVal || slVal <= 0) && buyP > 0) {
-                        slVal = buyP * (1 + (isShort ? 1 : -1) * (slPct / 100));
-                    } else if (slVal > 0 && buyP > 0) {
-                        slPct = Math.abs((buyP - slVal) / buyP * 100);
+                    if ((!slVal || slVal <= 0) && basePrice > 0) {
+                        slVal = basePrice * (1 + (isShort ? 1 : -1) * (slPct / 100));
+                    } else if (slVal > 0 && basePrice > 0) {
+                        slPct = Math.abs((basePrice - slVal) / basePrice * 100);
                     }
 
-                    const tpText = tpVal > 0 ? `$${tpVal.toFixed(1)} (${isShort ? '-' : '+'}${tpPct.toFixed(0)}%)` : '-';
-                    const slText = slVal > 0 ? `$${slVal.toFixed(1)} (${isShort ? '+' : '-'}${slPct.toFixed(0)}%)` : '-';
-
-                    // 判斷是否即時觸發新設定的停利 / 停損價
-                    let isTpTriggered = false;
-                    let isSlTriggered = false;
-
-                    if (buyP > 0 && currP > 0 && tpVal > 0 && slVal > 0) {
-                        if (!isShort) {
-                            if (currP >= tpVal) isTpTriggered = true;
-                            if (currP <= slVal) isSlTriggered = true;
-                        } else {
-                            if (currP <= tpVal) isTpTriggered = true;
-                            if (currP >= slVal) isSlTriggered = true;
-                        }
-                    }
+                    const tpText = tpVal > 0 ? `$${tpVal.toFixed(1)} (${isShort ? '-' : '+'}${tpPct.toFixed(0)}%${isTriggerEntry ? ' 預估' : ''})` : '-';
+                    const slText = slVal > 0 ? `$${slVal.toFixed(1)} (${isShort ? '+' : '-'}${slPct.toFixed(0)}%${isTriggerEntry ? ' 預估' : ''})` : '-';
 
                     let sigTag = '<span style="font-size:0.75rem; font-weight:700; padding:2px 6px; border-radius:4px; background:rgba(59,130,246,0.2); color:#60a5fa;">📦 續抱中</span>';
-                    if (isTpTriggered) {
-                        sigTag = '<span style="font-size:0.75rem; font-weight:700; padding:2px 6px; border-radius:4px; background:rgba(16,185,129,0.2); color:#34d399;">🎯 達標停利(明日平倉)</span>';
-                    } else if (isSlTriggered) {
-                        sigTag = '<span style="font-size:0.75rem; font-weight:700; padding:2px 6px; border-radius:4px; background:rgba(239,68,68,0.25); color:#f87171;">🛑 觸發停損(明日平倉)</span>';
-                    } else if (sigObj && sigObj.status === 'TRIGGER_EXIT') {
-                        if (sigObj.exitReasonType === 'TAKE_PROFIT') {
+                    
+                    if (isTriggerEntry) {
+                        sigTag = '<span style="font-size:0.75rem; font-weight:700; padding:2px 6px; border-radius:4px; background:rgba(239,68,68,0.2); color:#f87171; border:1px solid rgba(239,68,68,0.4);">🔥 今日新進場</span>';
+                    } else {
+                        let isTpTriggered = false;
+                        let isSlTriggered = false;
+
+                        if (buyP > 0 && currP > 0 && tpVal > 0 && slVal > 0) {
+                            if (!isShort) {
+                                if (currP >= tpVal) isTpTriggered = true;
+                                if (currP <= slVal) isSlTriggered = true;
+                            } else {
+                                if (currP <= tpVal) isTpTriggered = true;
+                                if (currP >= slVal) isSlTriggered = true;
+                            }
+                        }
+
+                        if (isTpTriggered) {
                             sigTag = '<span style="font-size:0.75rem; font-weight:700; padding:2px 6px; border-radius:4px; background:rgba(16,185,129,0.2); color:#34d399;">🎯 達標停利(明日平倉)</span>';
-                        } else if (sigObj.exitReasonType === 'STOP_LOSS') {
+                        } else if (isSlTriggered) {
                             sigTag = '<span style="font-size:0.75rem; font-weight:700; padding:2px 6px; border-radius:4px; background:rgba(239,68,68,0.25); color:#f87171;">🛑 觸發停損(明日平倉)</span>';
-                        } else {
-                            sigTag = '<span style="font-size:0.75rem; font-weight:700; padding:2px 6px; border-radius:4px; background:rgba(245,158,11,0.2); color:#fbbf24;">⚠️ 指標離場(明日平倉)</span>';
+                        } else if (sigObj && sigObj.status === 'TRIGGER_EXIT') {
+                            if (sigObj.exitReasonType === 'TAKE_PROFIT') {
+                                sigTag = '<span style="font-size:0.75rem; font-weight:700; padding:2px 6px; border-radius:4px; background:rgba(16,185,129,0.2); color:#34d399;">🎯 達標停利(明日平倉)</span>';
+                            } else if (sigObj.exitReasonType === 'STOP_LOSS') {
+                                sigTag = '<span style="font-size:0.75rem; font-weight:700; padding:2px 6px; border-radius:4px; background:rgba(239,68,68,0.25); color:#f87171;">🛑 觸發停損(明日平倉)</span>';
+                            } else {
+                                sigTag = '<span style="font-size:0.75rem; font-weight:700; padding:2px 6px; border-radius:4px; background:rgba(245,158,11,0.2); color:#fbbf24;">⚠️ 指標離場(明日平倉)</span>';
+                            }
                         }
                     }
+
+                    const buyPriceCell = isTriggerEntry 
+                        ? `<span style="color:#fbbf24; font-size:0.8rem; font-weight:700;">待成交 (開盤價未定)</span>` 
+                        : `$${buyP.toFixed(1)}`;
+
+                    const pnlCell = isTriggerEntry
+                        ? `<span style="color:#94a3b8; font-weight:700;">-</span>`
+                        : `<span style="color:${color}; font-weight:700;">${sign}$${Math.round(h.pnl).toLocaleString()} <br><small>(${sign}${h.roi.toFixed(2)}%)</small></span>`;
+
+                    const checkboxCell = isTriggerEntry
+                        ? `<input type="checkbox" class="holding-checkbox" disabled data-pnl="0" data-cost="0">`
+                        : `<input type="checkbox" class="holding-checkbox" checked onchange="calculateHoldingTotalPnl()" data-pnl="${h.pnl}" data-cost="${h.buyPrice * h.shares * 1000}">`;
 
                     return `
                         <tr>
-                            <td><input type="checkbox" class="holding-checkbox" checked onchange="calculateHoldingTotalPnl()" data-pnl="${h.pnl}" data-cost="${h.buyPrice * h.shares * 1000}"></td>
+                            <td>${checkboxCell}</td>
                             <td><span style="font-size:0.8rem; font-weight:700; padding:3px 8px; border-radius:4px; background:${isShort ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)'}; color:${isShort ? '#10b981' : '#ef4444'};">${icon} ${typeText}</span></td>
                             <td style="font-weight:700;">${h.code} ${h.name}</td>
                             <td>${h.buyDate}</td>
-                            <td>$${h.buyPrice.toFixed(1)}</td>
-                            <td>$${h.currentPrice.toFixed(1)}</td>
+                            <td>${buyPriceCell}</td>
+                            <td>$${currP.toFixed(1)}</td>
                             <td>${h.shares}</td>
-                            <td style="color:${color}; font-weight:700;">${sign}$${Math.round(h.pnl).toLocaleString()} <br><small>(${sign}${h.roi.toFixed(2)}%)</small></td>
+                            <td>${pnlCell}</td>
                             <td style="color:#4ade80; font-weight:700;">${tpText}</td>
                             <td style="color:#f87171; font-weight:700;">${slText}</td>
                             <td>${sigTag}</td>
