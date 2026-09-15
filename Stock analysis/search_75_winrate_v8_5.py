@@ -52,7 +52,7 @@ def clean_and_parse_series(df, col_name):
         return pd.to_numeric(s, errors='coerce').ffill().bfill().fillna(0).values
     return np.zeros(len(df))
 
-def process_single_stock(filepath):
+def process_single_stock(filepath, target_strategy=None, target_type=None):
     fname = os.path.basename(filepath)
     match = re.match(r'^(\d{4})_(.+?)_', fname)
     if match:
@@ -235,9 +235,14 @@ def process_single_stock(filepath):
     best_long_signal_info = None
 
     for ent_name, ent_sig in long_entries:
-        if np.sum(ent_sig) < 5:
+        if target_type == 'short':
+            continue
+        if target_strategy is None and np.sum(ent_sig) < 5:
             continue
         for ext_name, tp, sl, ext_sig in long_exits:
+            combo_name = f"{ent_name} & {ext_name}"
+            if target_strategy and combo_name != target_strategy:
+                continue
             shares = 1000
             pnl = 0
             trades = 0
@@ -361,7 +366,7 @@ def process_single_stock(filepath):
             win_rate = (wins / trades * 100) if trades > 0 else 0
             roi = (pnl / max_capital * 100) if max_capital > 0 else 0
 
-            if trades >= 5 and win_rate >= 75.0 and roi >= 60.0:
+            if (target_strategy and f"{ent_name} & {ext_name}" == target_strategy) or (trades >= 5 and win_rate >= 75.0 and roi >= 60.0):
                 if pnl > best_long_pnl:
                     best_long_pnl = pnl
                     best_long_win_rate = win_rate
@@ -389,9 +394,14 @@ def process_single_stock(filepath):
     best_short_signal_info = None
 
     for ent_name, ent_sig in short_entries:
-        if np.sum(ent_sig) < 5:
+        if target_type == 'long':
+            continue
+        if target_strategy is None and np.sum(ent_sig) < 5:
             continue
         for ext_name, tp, sl, ext_sig in short_exits:
+            combo_name = f"{ent_name} & {ext_name}"
+            if target_strategy and combo_name != target_strategy:
+                continue
             shares = 1000
             pnl = 0
             trades = 0
@@ -504,7 +514,7 @@ def process_single_stock(filepath):
             win_rate = (wins / trades * 100) if trades > 0 else 0
             roi = (pnl / max_capital * 100) if max_capital > 0 else 0
 
-            if trades >= 5 and win_rate >= 75.0 and roi >= 60.0:
+            if (target_strategy and f"{ent_name} & {ext_name}" == target_strategy) or (trades >= 5 and win_rate >= 75.0 and roi >= 60.0):
                 if pnl > best_short_pnl:
                     best_short_pnl = pnl
                     best_short_win_rate = win_rate
@@ -647,6 +657,71 @@ def main():
                 print(f"[Progress] 已完成 {completed}/{total} 檔個股 ({completed/total*100:.1f}%), 已篩選出 {success_count} 策略標的...", flush=True)
 
     if leaderboard_data:
+        # ── 🛡️ 現役持倉持久化與保護機制 (Active Holdings Protection) ──
+        PERSISTENT_HOLDINGS_PATH = os.path.join(SCRIPT_DIR, "persistent_holdings_v8_5.json")
+        SERVER_PERSISTENT_HOLDINGS_PATH = os.path.join(SCRIPT_DIR, "修正版_V6_Server", "public", "persistent_holdings_v8_5.json")
+
+        persistent_holdings = {}
+        if os.path.exists(PERSISTENT_HOLDINGS_PATH):
+            try:
+                with open(PERSISTENT_HOLDINGS_PATH, 'r', encoding='utf-8') as f:
+                    persistent_holdings = json.load(f)
+            except Exception as e:
+                print(f"⚠️ 讀取持倉保護檔失敗: {e}")
+
+        import datetime
+        today_keys = set()
+        for item in leaderboard_data:
+            hd = item.get("holding")
+            sig = item.get("signalInfo") or {}
+            st = sig.get("status")
+            pkey = f"{item['code']}_{item.get('type', 'long')}"
+            if hd or st in ["TRIGGER_ENTRY", "HOLDING"]:
+                today_keys.add(pkey)
+                persistent_holdings[pkey] = {
+                    "code": item["code"],
+                    "name": item["name"],
+                    "type": item.get("type", "long"),
+                    "strategy": item["strategy"]
+                }
+
+        for pkey, pitem in list(persistent_holdings.items()):
+            if pkey in today_keys:
+                continue
+            pcode = pitem["code"]
+            finfo = code_file_map.get(pcode)
+            if not finfo:
+                continue
+            fpath = finfo[2]
+            
+            res = process_single_stock(fpath, target_strategy=pitem["strategy"], target_type=pitem["type"])
+            if res:
+                l_res, s_res, _ = res
+                target_res = s_res if pitem["type"] == "short" else l_res
+                if target_res:
+                    hd = target_res.get("holding")
+                    sig = target_res.get("signalInfo") or {}
+                    st = sig.get("status")
+                    
+                    if hd or st in ["TRIGGER_ENTRY", "HOLDING", "TRIGGER_EXIT"]:
+                        leaderboard_data.append(target_res)
+                        today_keys.add(pkey)
+                        success_count += 1
+                        print(f"🛡️ [持倉保護] 強制注入持續追蹤標的: {pcode} {target_res['name']} ({pitem['type']}) | 狀態: {st or 'HOLDING'}")
+                        if st not in ["TRIGGER_ENTRY", "HOLDING", "TRIGGER_EXIT"] and not hd:
+                            persistent_holdings.pop(pkey, None)
+                    else:
+                        persistent_holdings.pop(pkey, None)
+
+        try:
+            os.makedirs(os.path.dirname(SERVER_PERSISTENT_HOLDINGS_PATH), exist_ok=True)
+            with open(PERSISTENT_HOLDINGS_PATH, 'w', encoding='utf-8') as f:
+                json.dump(persistent_holdings, f, indent=4, ensure_ascii=False)
+            with open(SERVER_PERSISTENT_HOLDINGS_PATH, 'w', encoding='utf-8') as f:
+                json.dump(persistent_holdings, f, indent=4, ensure_ascii=False)
+        except Exception as e:
+            print(f"⚠️ 寫入持倉保護檔失敗: {e}")
+
         leaderboard_data.sort(key=lambda x: x["profit"], reverse=True)
         os.makedirs(os.path.dirname(OUTPUT_LEADERBOARD_PATH), exist_ok=True)
         

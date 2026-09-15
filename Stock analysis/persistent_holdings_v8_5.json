@@ -1,0 +1,80 @@
+{
+    "2453_short": {
+        "code": "2453",
+        "name": "凌群",
+        "type": "short",
+        "strategy": "極度超買共振 (BIAS+RSI+MFI) & RSI超賣(RSI<30)回補"
+    },
+    "3046_long": {
+        "code": "3046",
+        "name": "建碁",
+        "type": "long",
+        "strategy": "極度超跌共振 (BIAS+RSI+MFI) & 12%停利 / 6%停損 (積極型)"
+    },
+    "2360_long": {
+        "code": "2360",
+        "name": "致茂",
+        "type": "long",
+        "strategy": "EOM動能突破+均線多頭 & 波段追蹤：ATR追蹤停損 (最高價拉回3*ATR離場)"
+    },
+    "2488_long": {
+        "code": "2488",
+        "name": "漢平",
+        "type": "long",
+        "strategy": "突破樞軸(Pivot)+RSI轉強 & 8%停利 / 8%停損 (精配型)"
+    },
+    "2850_long": {
+        "code": "2850",
+        "name": "新產",
+        "type": "long",
+        "strategy": "EOM動能突破+均線多頭 & 8%停利 / 8%停損 (精配型)"
+    },
+    "2891_long": {
+        "code": "2891",
+        "name": "中信金",
+        "type": "long",
+        "strategy": "動能共振：EOM突破+MACD>0+RSI>50 & 10%停利 / 6%停損 (波段型)"
+    },
+    "3607_long": {
+        "code": "3607",
+        "name": "谷崧",
+        "type": "long",
+        "strategy": "極度超跌共振 (BIAS+RSI+MFI) & RSI過熱(RSI>70)離場"
+    },
+    "2832_long": {
+        "code": "2832",
+        "name": "台產",
+        "type": "long",
+        "strategy": "S1支撐不破+MACD紅柱增長 & 10%停利 / 6%停損 (波段型)"
+    },
+    "2855_long": {
+        "code": "2855",
+        "name": "統一證",
+        "type": "long",
+        "strategy": "EOM動能突破+均線多頭 & 8%停利 / 8%停損 (精配型)"
+    },
+    "3029_long": {
+        "code": "3029",
+        "name": "零壹",
+        "type": "long",
+        "strategy": "S1支撐不破+MACD紅柱增長 & 8%停利 / 8%停損 (精配型)"
+    },
+    "5546_short": {
+        "code": "5546",
+        "name": "永固-KY",
+        "type": "short",
+        "strategy": "跌破樞軸(Pivot)+RSI轉弱 & 8%停利 / 8%停損 (精配型)"
+    },
+    "6136_long": {
+        "code": "6136",
+        "name": "富爾特",
+        "type": "long",
+        "strategy": "S1支撐不破+MACD紅柱增長 & 8%停利 / 8%停損 (精配型)"
+    },
+    "6165_long": {
+        "code": "6165",
+        "name": "浪凡",
+        "type": "long",
+        "strategy": "雙保險超跌：BIAS超賣+布林下軌觸及 & 6%停利 / 6%停損 (穩健型)"
+    }
+}
