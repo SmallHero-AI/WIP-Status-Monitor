@@ -11,12 +11,6 @@
         "type": "long",
         "strategy": "極度超跌共振 (BIAS+RSI+MFI) & 12%停利 / 6%停損 (積極型)"
     },
-    "2360_long": {
-        "code": "2360",
-        "name": "致茂",
-        "type": "long",
-        "strategy": "EOM動能突破+均線多頭 & 波段追蹤：ATR追蹤停損 (最高價拉回3*ATR離場)"
-    },
     "2488_long": {
         "code": "2488",
         "name": "漢平",
@@ -33,7 +27,7 @@
         "code": "2891",
         "name": "中信金",
         "type": "long",
-        "strategy": "動能共振：EOM突破+MACD>0+RSI>50 & 10%停利 / 6%停損 (波段型)"
+        "strategy": "動能共振：EOM突破+MACD>0+RSI>50 & 6%停利 / 6%停損 (穩健型)"
     },
     "3607_long": {
         "code": "3607",
@@ -69,12 +63,24 @@
         "code": "6136",
         "name": "富爾特",
         "type": "long",
-        "strategy": "S1支撐不破+MACD紅柱增長 & 8%停利 / 8%停損 (精配型)"
+        "strategy": "S1支撐不破+MACD紅柱增長 & 6%停利 / 6%停損 (穩健型)"
     },
     "6165_long": {
         "code": "6165",
         "name": "浪凡",
         "type": "long",
         "strategy": "雙保險超跌：BIAS超賣+布林下軌觸及 & 6%停利 / 6%停損 (穩健型)"
+    },
+    "2330_long": {
+        "code": "2330",
+        "name": "台積電",
+        "type": "long",
+        "strategy": "布林中軌支撐+MACD紅柱 & 6%停利 / 6%停損 (穩健型)"
+    },
+    "2451_long": {
+        "code": "2451",
+        "name": "創見",
+        "type": "long",
+        "strategy": "中長期多頭+RSI低檔轉強 & 12%停利 / 6%停損 (積極型)"
     }
 }
