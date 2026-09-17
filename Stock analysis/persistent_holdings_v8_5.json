@@ -29,12 +29,6 @@
         "type": "long",
         "strategy": "動能共振：EOM突破+MACD>0+RSI>50 & 6%停利 / 6%停損 (穩健型)"
     },
-    "3607_long": {
-        "code": "3607",
-        "name": "谷崧",
-        "type": "long",
-        "strategy": "極度超跌共振 (BIAS+RSI+MFI) & RSI過熱(RSI>70)離場"
-    },
     "2832_long": {
         "code": "2832",
         "name": "台產",
@@ -82,5 +76,11 @@
         "name": "創見",
         "type": "long",
         "strategy": "中長期多頭+RSI低檔轉強 & 12%停利 / 6%停損 (積極型)"
+    },
+    "4441_long": {
+        "code": "4441",
+        "name": "振大環球",
+        "type": "long",
+        "strategy": "S1支撐不破+MACD紅柱增長 & 12%停利 / 6%停損 (積極型)"
     }
 }
