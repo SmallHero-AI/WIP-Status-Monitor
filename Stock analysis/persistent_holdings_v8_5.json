@@ -69,7 +69,7 @@
         "code": "2330",
         "name": "台積電",
         "type": "long",
-        "strategy": "布林中軌支撐+MACD紅柱 & 6%停利 / 6%停損 (穩健型)"
+        "strategy": "S1支撐不破+MACD紅柱增長 & 6%停利 / 6%停損 (穩健型)"
     },
     "2451_long": {
         "code": "2451",
@@ -82,5 +82,17 @@
         "name": "振大環球",
         "type": "long",
         "strategy": "S1支撐不破+MACD紅柱增長 & 12%停利 / 6%停損 (積極型)"
+    },
+    "2360_long": {
+        "code": "2360",
+        "name": "致茂",
+        "type": "long",
+        "strategy": "EOM動能突破+均線多頭 & 波段追蹤：ATR追蹤停損 (最高價拉回3*ATR離場)"
+    },
+    "3607_long": {
+        "code": "3607",
+        "name": "谷崧",
+        "type": "long",
+        "strategy": "極度超跌共振 (BIAS+RSI+MFI) & RSI過熱(RSI>70)離場"
     }
 }
