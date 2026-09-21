@@ -40,5 +40,11 @@
     "fingerprint": "2026-09-18_entry:2360_exit:3029",
     "entries_count": 1,
     "exits_count": 1
+  },
+  "2026-09-21": {
+    "sent_time": "2026-09-21 16:14:15",
+    "fingerprint": "2026-09-21_entry:_exit:2855",
+    "entries_count": 0,
+    "exits_count": 1
   }
 }
