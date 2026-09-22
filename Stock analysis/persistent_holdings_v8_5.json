@@ -45,7 +45,7 @@
         "code": "5546",
         "name": "永固-KY",
         "type": "short",
-        "strategy": "跌破樞軸(Pivot)+RSI轉弱 & 8%停利 / 8%停損 (精配型)"
+        "strategy": "布林中軌阻力+MACD綠柱 & 8%停利 / 8%停損 (精配型)"
     },
     "6136_long": {
         "code": "6136",
@@ -88,5 +88,17 @@
         "name": "谷崧",
         "type": "long",
         "strategy": "極度超跌共振 (BIAS+RSI+MFI) & RSI過熱(RSI>70)離場"
+    },
+    "3043_long": {
+        "code": "3043",
+        "name": "科風",
+        "type": "long",
+        "strategy": "S1支撐不破+MACD紅柱增長 & 8%停利 / 8%停損 (精配型)"
+    },
+    "4148_short": {
+        "code": "4148",
+        "name": "全宇生技-KY",
+        "type": "short",
+        "strategy": "R1壓力不破+MACD綠柱增長 & 10%停利 / 6%停損 (波段型)"
     }
 }
