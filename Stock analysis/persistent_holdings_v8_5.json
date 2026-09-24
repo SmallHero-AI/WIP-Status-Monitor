@@ -45,7 +45,7 @@
         "code": "5546",
         "name": "永固-KY",
         "type": "short",
-        "strategy": "布林中軌阻力+MACD綠柱 & 8%停利 / 8%停損 (精配型)"
+        "strategy": "跌破樞軸(Pivot)+RSI轉弱 & 8%停利 / 8%停損 (精配型)"
     },
     "6136_long": {
         "code": "6136",
