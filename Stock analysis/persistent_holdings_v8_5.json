@@ -27,7 +27,7 @@
         "code": "2891",
         "name": "中信金",
         "type": "long",
-        "strategy": "動能共振：EOM突破+MACD>0+RSI>50 & 6%停利 / 6%停損 (穩健型)"
+        "strategy": "突破樞軸(Pivot)+RSI轉強 & 8%停利 / 8%停損 (精配型)"
     },
     "2832_long": {
         "code": "2832",
@@ -100,5 +100,11 @@
         "name": "全宇生技-KY",
         "type": "short",
         "strategy": "R1壓力不破+MACD綠柱增長 & 10%停利 / 6%停損 (波段型)"
+    },
+    "6213_long": {
+        "code": "6213",
+        "name": "聯茂",
+        "type": "long",
+        "strategy": "S1支撐不破+MACD紅柱增長 & RSI過熱(RSI>70)離場"
     }
 }
