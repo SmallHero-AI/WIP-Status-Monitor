@@ -77,12 +77,6 @@
         "type": "long",
         "strategy": "S1支撐不破+MACD紅柱增長 & 10%停利 / 6%停損 (波段型)"
     },
-    "2360_long": {
-        "code": "2360",
-        "name": "致茂",
-        "type": "long",
-        "strategy": "EOM動能突破+均線多頭 & 波段追蹤：ATR追蹤停損 (最高價拉回3*ATR離場)"
-    },
     "3607_long": {
         "code": "3607",
         "name": "谷崧",

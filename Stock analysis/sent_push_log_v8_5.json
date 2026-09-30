@@ -70,5 +70,11 @@
     "fingerprint": "2026-09-29_entry:2891,6213_exit:2360",
     "entries_count": 2,
     "exits_count": 1
+  },
+  "2026-09-30": {
+    "sent_time": "2026-09-30 16:51:15",
+    "fingerprint": "2026-09-30_entry:_exit:6213",
+    "entries_count": 0,
+    "exits_count": 1
   }
 }
