@@ -26,9 +26,9 @@ def main():
     with open(LEADERBOARD_PATH, 'r', encoding='utf-8') as f:
         leaderboard = json.load(f)
 
-    # 篩選勝率 >= 75% 的股票
-    high_win = [x for x in leaderboard if x['winRate'] >= 75 and x.get('roi', 0) >= 60]
-    print(f"[資訊 V8.5] 共讀到 {len(high_win)} 檔高勝率且高 ROI 個股")
+    # 包含 leaderboard 中所有精選策略個股（含持倉個股與觸發訊號個股）
+    high_win = leaderboard
+    print(f"[資訊 V8.5] 共讀到 {len(high_win)} 檔精選/持倉/訊號個股")
 
     # 分類策略定義 (多單進場訊號)
     long_trend = [
