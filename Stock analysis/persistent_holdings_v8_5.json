@@ -95,10 +95,16 @@
         "type": "short",
         "strategy": "R1壓力不破+MACD綠柱增長 & 10%停利 / 6%停損 (波段型)"
     },
-    "6213_long": {
-        "code": "6213",
-        "name": "聯茂",
+    "2312_long": {
+        "code": "2312",
+        "name": "金寶",
         "type": "long",
-        "strategy": "S1支撐不破+MACD紅柱增長 & RSI過熱(RSI>70)離場"
+        "strategy": "S1支撐不破+MACD紅柱增長 & 6%停利 / 6%停損 (穩健型)"
+    },
+    "3706_long": {
+        "code": "3706",
+        "name": "神達",
+        "type": "long",
+        "strategy": "S1支撐不破+MACD紅柱增長 & 8%停利 / 8%停損 (精配型)"
     }
 }
