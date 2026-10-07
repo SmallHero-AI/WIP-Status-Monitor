@@ -29,12 +29,6 @@
         "type": "long",
         "strategy": "突破樞軸(Pivot)+RSI轉強 & 8%停利 / 8%停損 (精配型)"
     },
-    "2832_long": {
-        "code": "2832",
-        "name": "台產",
-        "type": "long",
-        "strategy": "S1支撐不破+MACD紅柱增長 & 10%停利 / 6%停損 (波段型)"
-    },
     "2855_long": {
         "code": "2855",
         "name": "統一證",
@@ -124,5 +118,17 @@
         "name": "國票金",
         "type": "long",
         "strategy": "中長期多頭+RSI低檔轉強 & 8%停利 / 8%停損 (精配型)"
+    },
+    "2546_long": {
+        "code": "2546",
+        "name": "根基",
+        "type": "long",
+        "strategy": "S1支撐不破+MACD紅柱增長 & 8%停利 / 8%停損 (精配型)"
+    },
+    "2357_long": {
+        "code": "2357",
+        "name": "華碩",
+        "type": "long",
+        "strategy": "S1支撐不破+MACD紅柱增長 & 8%停利 / 8%停損 (精配型)"
     }
 }
