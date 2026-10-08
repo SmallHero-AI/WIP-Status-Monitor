@@ -39,7 +39,7 @@
         "code": "5546",
         "name": "永固-KY",
         "type": "short",
-        "strategy": "跌破樞軸(Pivot)+RSI轉弱 & 8%停利 / 8%停損 (精配型)"
+        "strategy": "布林中軌阻力+MACD綠柱 & 8%停利 / 8%停損 (精配型)"
     },
     "6136_long": {
         "code": "6136",
@@ -69,7 +69,7 @@
         "code": "4441",
         "name": "振大環球",
         "type": "long",
-        "strategy": "S1支撐不破+MACD紅柱增長 & 10%停利 / 6%停損 (波段型)"
+        "strategy": "S1支撐不破+MACD紅柱增長 & 12%停利 / 6%停損 (積極型)"
     },
     "3607_long": {
         "code": "3607",
@@ -123,12 +123,18 @@
         "code": "2546",
         "name": "根基",
         "type": "long",
-        "strategy": "S1支撐不破+MACD紅柱增長 & 8%停利 / 8%停損 (精配型)"
+        "strategy": "雙重均線突破+MACD翻紅 & 8%停利 / 8%停損 (精配型)"
     },
     "2357_long": {
         "code": "2357",
         "name": "華碩",
         "type": "long",
         "strategy": "S1支撐不破+MACD紅柱增長 & 8%停利 / 8%停損 (精配型)"
+    },
+    "1476_short": {
+        "code": "1476",
+        "name": "儒鴻",
+        "type": "short",
+        "strategy": "雙保險超買：BIAS超買+布林上軌觸及 & RSI超賣(RSI<30)回補"
     }
 }
