@@ -1,10 +1,4 @@
 {
-    "2453_short": {
-        "code": "2453",
-        "name": "凌群",
-        "type": "short",
-        "strategy": "極度超買共振 (BIAS+RSI+MFI) & RSI超賣(RSI<30)回補"
-    },
     "3046_long": {
         "code": "3046",
         "name": "建碁",
@@ -39,13 +33,7 @@
         "code": "5546",
         "name": "永固-KY",
         "type": "short",
-        "strategy": "布林中軌阻力+MACD綠柱 & 8%停利 / 8%停損 (精配型)"
-    },
-    "6136_long": {
-        "code": "6136",
-        "name": "富爾特",
-        "type": "long",
-        "strategy": "S1支撐不破+MACD紅柱增長 & 6%停利 / 6%停損 (穩健型)"
+        "strategy": "跌破樞軸(Pivot)+RSI轉弱 & 8%停利 / 8%停損 (精配型)"
     },
     "6165_long": {
         "code": "6165",
