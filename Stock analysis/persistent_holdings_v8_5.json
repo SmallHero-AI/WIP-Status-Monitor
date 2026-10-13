@@ -124,5 +124,17 @@
         "name": "儒鴻",
         "type": "short",
         "strategy": "雙保險超買：BIAS超買+布林上軌觸及 & RSI超賣(RSI<30)回補"
+    },
+    "2603_long": {
+        "code": "2603",
+        "name": "長榮",
+        "type": "long",
+        "strategy": "S1支撐不破+MACD紅柱增長 & 8%停利 / 8%停損 (精配型)"
+    },
+    "2605_long": {
+        "code": "2605",
+        "name": "新興",
+        "type": "long",
+        "strategy": "雙重均線突破+MACD翻紅 & 12%停利 / 6%停損 (積極型)"
     }
 }
