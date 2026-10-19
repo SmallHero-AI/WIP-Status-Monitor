@@ -15,13 +15,13 @@
         "code": "2850",
         "name": "新產",
         "type": "long",
-        "strategy": "EOM動能突破+均線多頭 & 8%停利 / 8%停損 (精配型)"
+        "strategy": "布林中軌支撐+MACD紅柱 & 8%停利 / 8%停損 (精配型)"
     },
     "2891_long": {
         "code": "2891",
         "name": "中信金",
         "type": "long",
-        "strategy": "突破樞軸(Pivot)+RSI轉強 & 8%停利 / 8%停損 (精配型)"
+        "strategy": "布林中軌支撐+MACD紅柱 & 12%停利 / 6%停損 (積極型)"
     },
     "2855_long": {
         "code": "2855",
@@ -57,7 +57,7 @@
         "code": "4441",
         "name": "振大環球",
         "type": "long",
-        "strategy": "S1支撐不破+MACD紅柱增長 & 12%停利 / 6%停損 (積極型)"
+        "strategy": "S1支撐不破+MACD紅柱增長 & 10%停利 / 6%停損 (波段型)"
     },
     "3607_long": {
         "code": "3607",
@@ -106,12 +106,6 @@
         "name": "華碩",
         "type": "long",
         "strategy": "S1支撐不破+MACD紅柱增長 & 8%停利 / 8%停損 (精配型)"
-    },
-    "1476_short": {
-        "code": "1476",
-        "name": "儒鴻",
-        "type": "short",
-        "strategy": "雙保險超買：BIAS超買+布林上軌觸及 & RSI超賣(RSI<30)回補"
     },
     "2603_long": {
         "code": "2603",
