@@ -124,5 +124,17 @@
         "name": "泰碩",
         "type": "long",
         "strategy": "中長期多頭+RSI低檔轉強 & 12%停利 / 6%停損 (積極型)"
+    },
+    "3029_long": {
+        "code": "3029",
+        "name": "零壹",
+        "type": "long",
+        "strategy": "S1支撐不破+MACD紅柱增長 & 8%停利 / 8%停損 (精配型)"
+    },
+    "4569_long": {
+        "code": "4569",
+        "name": "六方科-KY",
+        "type": "long",
+        "strategy": "雙保險超跌：BIAS超賣+布林下軌觸及 & 波段追蹤：ATR追蹤停損 (最高價拉回3*ATR離場)"
     }
 }

@@ -154,5 +154,11 @@
     "fingerprint": "2026-10-23_entry:_exit:",
     "entries_count": 0,
     "exits_count": 0
+  },
+  "2026-10-27": {
+    "sent_time": "2026-10-27 16:13:36",
+    "fingerprint": "2026-10-27_entry:3029,4569_exit:2605",
+    "entries_count": 2,
+    "exits_count": 1
   }
 }
