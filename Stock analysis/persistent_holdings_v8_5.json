@@ -130,5 +130,11 @@
         "name": "六方科-KY",
         "type": "long",
         "strategy": "雙保險超跌：BIAS超賣+布林下軌觸及 & 波段追蹤：ATR追蹤停損 (最高價拉回3*ATR離場)"
+    },
+    "4562_short": {
+        "code": "4562",
+        "name": "穎漢",
+        "type": "short",
+        "strategy": "雙保險超買：BIAS超買+布林上軌觸及 & 6%停利 / 6%停損 (穩健型)"
     }
 }
