@@ -1,11 +1,14 @@
 # -*- coding: utf-8 -*-
 """
 ================================================================================
-長期佈局策略視覺呈現優化補丁 (patch_long_term_strategy_v8_5.py)
-1. 候選清單表格取消獨立欄位，改在「共同基金數 / ETF數」與「持有數量」下方換行小字括號說明差異
-2. 將持股數量單位統一修正為「張」(因資料源單位為千股=張)
-3. 右側柱狀圖數字後方增加括號顯示該檔基金/ETF的持股差異 (例如: 12,000 張 (+2,000 張)、(新進)、(持平))
-4. 柱狀圖 Tooltip 標題精準顯示 ETF 官方證券代號 (如 0050、00406A) 或基金代號與簡稱
+長期佈局策略視覺呈現與報價外鏈優化補丁 (patch_long_term_strategy_v8_5.py)
+1. 候選清單表格取消「基本面/動作」欄位，精簡為 6 欄標準視圖
+2. 「個股名稱」增加外部報價超連結，點擊新分頁開啟股價行情
+3. 控制列新增「🔗 外部報價網站」切換選單 (Yahoo股市 / Goodinfo! / Google Finance / 玩股網)，並以 localStorage 保存
+4. 「兩期差異對照」排序演算法重構：以 |增減張數絕對值| 降冪排序，將實質加碼/減碼主力個股排在最前，0 張(境外股)沉底
+5. 共同基金數 / ETF數 與 持有張數 保留換行小字括號說明差異
+6. 柱狀圖數字後方增加括號顯示該檔基金/ETF的持股差異 (單位: 張)
+7. 柱狀圖 Tooltip 標題精準顯示 ETF 官方證券代號 (如 0050、00406A) 或基金代號與簡稱
 ================================================================================
 """
 
@@ -22,23 +25,31 @@ SERVER_PUBLIC_DIR = os.path.join(SCRIPT_DIR, "修正版_V6_Server", "public")
 TARGET_FILE = os.path.join(SERVER_PUBLIC_DIR, "dashboard_v8_4_backup.html")
 
 def apply_patch(target_path=TARGET_FILE):
-    print(f"正在更新長期佈局策略 (單位更正為張) 至: {target_path} ...")
+    print(f"正在更新長期佈局策略 (外鏈報價+異動張數排序+精簡6欄) 至: {target_path} ...")
     with open(target_path, 'r', encoding='utf-8') as f:
         html = f.read()
 
-    # 1. 調整 HTML 控制項區塊，確保期別切換按鈕組存在
-    old_ctrl_section = """                <div style="display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 20px;">
-                    <div style="display: flex; align-items: center; gap: 10px;">
-                        <span>顯示前 N 名：</span>"""
-
-    new_ctrl_section = """                <div style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 15px; margin-bottom: 20px;">
-                    <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap;">
-                        <span>顯示前 N 名：</span>"""
-
-    if old_ctrl_section in html:
-        html = html.replace(old_ctrl_section, new_ctrl_section)
-
-    old_scale_end = """                        <select id="filter_fund_scale" onchange="renderLongTermCandidates()"
+    # 1. 調整 HTML 控制項區塊，加入外部報價網站選擇器與檢視期別按鈕組
+    old_ctrl_variants = [
+        """                    <!-- 💎 月份切換與異動模式按鈕組 -->
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-weight: 700; font-size: 0.9rem; color: #475569;">檢視期別：</span>
+                        <div id="long_term_month_toggle_group" style="display: inline-flex; background: rgba(0,0,0,0.06); padding: 3px; border-radius: 8px; gap: 4px;">
+                            <button id="btn_month_curr" onclick="switchLongTermMonth('curr')"
+                                style="padding: 6px 14px; border: none; border-radius: 6px; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; background: #6366f1; color: white; box-shadow: 0 2px 4px rgba(99, 102, 241, 0.3);">
+                                🔥 2026-10 (最新)
+                            </button>
+                            <button id="btn_month_base" onclick="switchLongTermMonth('base')"
+                                style="padding: 6px 14px; border: none; border-radius: 6px; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; background: transparent; color: #64748b;">
+                                📅 2026-07 (前期)
+                            </button>
+                            <button id="btn_month_diff" onclick="switchLongTermMonth('diff')"
+                                style="padding: 6px 14px; border: none; border-radius: 6px; font-weight: 700; font-size: 0.85rem; cursor: pointer; transition: all 0.2s; background: transparent; color: #64748b;">
+                                📊 兩期差異對照
+                            </button>
+                        </div>
+                    </div>""",
+        """                        <select id="filter_fund_scale" onchange="renderLongTermCandidates()"
                             style="padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-weight: bold; cursor: pointer;">
                             <option value="0">全部 (不限規模)</option>
                             <option value="50">50 億元以上</option>
@@ -49,15 +60,17 @@ def apply_patch(target_path=TARGET_FILE):
                         </select>
                     </div>
                 </div>"""
+    ]
 
-    new_scale_end = """                        <select id="filter_fund_scale" onchange="renderLongTermCandidates()"
-                            style="padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1; font-weight: bold; cursor: pointer;">
-                            <option value="0">全部 (不限規模)</option>
-                            <option value="50">50 億元以上</option>
-                            <option value="100">100 億元以上</option>
-                            <option value="200">200 億元以上</option>
-                            <option value="500">500 億元以上</option>
-                            <option value="1000">1000 億元以上</option>
+    new_ctrl_block = """                    <!-- 🔗 外部報價網站選擇器 -->
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                        <span style="font-weight: 700; font-size: 0.85rem; color: #475569;">🔗 外部報價：</span>
+                        <select id="select_external_quote_provider" onchange="changeExternalQuoteProvider(this.value)"
+                            style="padding: 5px 10px; border-radius: 6px; border: 1px solid #cbd5e1; font-weight: 700; cursor: pointer; font-size: 0.85rem; background: transparent; color: inherit; outline: none;">
+                            <option value="yahoo">Yahoo 奇摩股市</option>
+                            <option value="goodinfo">Goodinfo! 台灣股市</option>
+                            <option value="google">Google Finance</option>
+                            <option value="wantgoo">玩股網 (WantGoo)</option>
                         </select>
                     </div>
 
@@ -78,30 +91,37 @@ def apply_patch(target_path=TARGET_FILE):
                                 📊 兩期差異對照
                             </button>
                         </div>
-                    </div>
-                </div>"""
+                    </div>"""
 
-    if old_scale_end in html:
-        html = html.replace(old_scale_end, new_scale_end)
+    # 確保外部報價選擇器置入
+    if "select_external_quote_provider" not in html:
+        for old_v in old_ctrl_variants:
+            if old_v in html:
+                if "💎 月份切換與異動模式按鈕組" in old_v:
+                    html = html.replace(old_v, new_ctrl_block)
+                else:
+                    html = html.replace(old_v, old_v.replace("</div>\n                </div>", "") + new_ctrl_block + "\n                </div>")
+                print("✅ 1. 控制項區塊注入 (外部報價網站切換選單) 完成")
+                break
 
-    # 2. 7 欄表頭加上單位 (張)
+    # 2. 6 欄表頭更新 (移除「基本面/動作」)
     header_variants = [
         """                                    <th style="padding:10px; font-weight:700;">排名</th>
                                     <th style="padding:10px; font-weight:700;">個股名稱</th>
-                                    <th id="th_long_term_trend" style="padding:10px; font-weight:700; color:#f59e0b;">異動趨勢 (vs 07月)</th>
                                     <th style="padding:10px; font-weight:700; color:#a855f7;">共同基金數</th>
                                     <th style="padding:10px; font-weight:700; color:#38bdf8;">ETF數</th>
-                                    <th style="padding:10px; font-weight:700; color:#a855f7;">共同基金總持股</th>
-                                    <th style="padding:10px; font-weight:700; color:#38bdf8;">ETF總持股</th>""",
+                                    <th style="padding:10px; font-weight:700; color:#a855f7;">共同基金總持股 (張)</th>
+                                    <th style="padding:10px; font-weight:700; color:#38bdf8;">ETF總持股 (張)</th>
+                                    <th style="padding:10px; font-weight:700;">基本面/動作</th>""",
         """                                    <th style="padding:10px; font-weight:700;">排名</th>
                                     <th style="padding:10px; font-weight:700;">個股名稱</th>
                                     <th style="padding:10px; font-weight:700; color:#a855f7;">共同基金數</th>
                                     <th style="padding:10px; font-weight:700; color:#38bdf8;">ETF數</th>
-                                    <th style="padding:10px; font-weight:700; color:#a855f7;">共同基金總持股</th>
-                                    <th style="padding:10px; font-weight:700; color:#38bdf8;">ETF總持股</th>"""
+                                    <th style="padding:10px; font-weight:700; color:#a855f7;">共同基金總持股 (張)</th>
+                                    <th style="padding:10px; font-weight:700; color:#38bdf8;">ETF總持股 (張)</th>"""
     ]
 
-    clean_header_with_unit = """                                    <th style="padding:10px; font-weight:700;">排名</th>
+    clean_6col_header = """                                    <th style="padding:10px; font-weight:700;">排名</th>
                                     <th style="padding:10px; font-weight:700;">個股名稱</th>
                                     <th style="padding:10px; font-weight:700; color:#a855f7;">共同基金數</th>
                                     <th style="padding:10px; font-weight:700; color:#38bdf8;">ETF數</th>
@@ -110,11 +130,14 @@ def apply_patch(target_path=TARGET_FILE):
 
     for hv in header_variants:
         if hv in html:
-            html = html.replace(hv, clean_header_with_unit)
-            print("✅ 2. 表頭單位更正為 (張) 完成")
+            html = html.replace(hv, clean_6col_header)
+            print("✅ 2. 表頭移除基本面欄位，精簡為 6 欄完成")
             break
 
-    # 3. 替換/升級 JavaScript 邏輯 (包含 ETF 代號精準比對、換行括號說明、單位張更正、長條圖數字後差異標註)
+    # 調整表格初始 colspan 為 6
+    html = html.replace('<td colspan="7"', '<td colspan="6"')
+
+    # 3. 替換/升級 JavaScript 邏輯 (包含 tw_stock_map、外鏈開啟、兩期差異依異動張數幅度排序、取消分析欄位)
     old_js_block_start = """        async function loadLongTermData() {"""
     if "let globalRawLongTermPayload = null;" in html:
         old_js_block_start = """        let globalRawLongTermPayload = null;"""
@@ -122,6 +145,7 @@ def apply_patch(target_path=TARGET_FILE):
     old_js_block_end = """        function returnToCandidateRow() {"""
 
     new_js_block = """        let globalRawLongTermPayload = null;
+        let globalTWStockMap = null;
         let currentLongTermMonthMode = 'curr'; // 'curr' | 'base' | 'diff'
 
         // 知名熱門 ETF 官方證券代號權威別名對照表 (確保 100% 準確解析)
@@ -191,6 +215,60 @@ def apply_patch(target_path=TARGET_FILE):
             return fundCode;
         }
 
+        // 外部報價偏好讀取與切換
+        function getSelectedQuoteProvider() {
+            return localStorage.getItem('preferred_stock_quote_provider') || 'yahoo';
+        }
+
+        function changeExternalQuoteProvider(val) {
+            localStorage.setItem('preferred_stock_quote_provider', val);
+        }
+
+        // 點擊個股名稱新分頁開啟外部報價
+        function openStockExternalQuote(stockName) {
+            const provider = getSelectedQuoteProvider();
+            const cleanName = String(stockName || '').trim();
+            let code = '';
+            
+            if (globalTWStockMap && globalTWStockMap[cleanName]) {
+                code = globalTWStockMap[cleanName];
+            } else {
+                // 嘗試由名稱內提取代號 (如 2330 台積電 或 2330)
+                const m = cleanName.match(/\\b(\\d{4,5}[A-Z]?)\\b/);
+                if (m) code = m[1];
+            }
+
+            let url = '';
+            if (provider === 'goodinfo') {
+                if (code) {
+                    url = `https://goodinfo.tw/tw/StockDetail.asp?STOCK_ID=${encodeURIComponent(code)}`;
+                } else {
+                    url = `https://goodinfo.tw/tw/BasicInfo.asp?STOCK_ID=${encodeURIComponent(cleanName)}`;
+                }
+            } else if (provider === 'google') {
+                if (code) {
+                    url = `https://www.google.com/finance/quote/${encodeURIComponent(code)}:TPE`;
+                } else {
+                    url = `https://www.google.com/finance/quote/${encodeURIComponent(cleanName)}`;
+                }
+            } else if (provider === 'wantgoo') {
+                if (code) {
+                    url = `https://www.wantgoo.com/stock/${encodeURIComponent(code)}`;
+                } else {
+                    url = `https://www.wantgoo.com/stock/${encodeURIComponent(cleanName)}`;
+                }
+            } else {
+                // 預設 Yahoo 奇摩股市
+                if (code) {
+                    url = `https://tw.stock.yahoo.com/quote/${encodeURIComponent(code)}`;
+                } else {
+                    url = `https://tw.stock.yahoo.com/search?q=${encodeURIComponent(cleanName)}`;
+                }
+            }
+
+            window.open(url, '_blank');
+        }
+
         function switchLongTermMonth(mode) {
             currentLongTermMonthMode = mode;
             const btnCurr = document.getElementById('btn_month_curr');
@@ -212,8 +290,14 @@ def apply_patch(target_path=TARGET_FILE):
             const fundsListContainer = document.getElementById('long_term_funds_list_container');
             const dateLabel = document.getElementById('long_term_data_date');
 
-            if (tableBody) tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:30px; color:#94a3b8;">⏳ 正在向伺服器請求最新持股分析資料...</td></tr>`;
+            if (tableBody) tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:#94a3b8;">⏳ 正在向伺服器請求最新持股分析資料...</td></tr>`;
             if (fundsListContainer) fundsListContainer.innerHTML = `<div style="text-align:center; color:#94a3b8; padding: 20px;">⏳ 正在加載...</div>`;
+
+            // 同步外部報價下拉選單偏好
+            const providerSelect = document.getElementById('select_external_quote_provider');
+            if (providerSelect) {
+                providerSelect.value = getSelectedQuoteProvider();
+            }
 
             try {
                 // 1. 取得候選股票
@@ -248,6 +332,16 @@ def apply_patch(target_path=TARGET_FILE):
                     console.warn("無法取得官方 ETF 字典，將使用預設關鍵字篩選", e);
                 }
 
+                // 4. 取得台股代號對照字典 (tw_stock_map.json)
+                try {
+                    const resStockMap = await fetch('/tw_stock_map.json');
+                    if (resStockMap.ok) {
+                        globalTWStockMap = await resStockMap.json();
+                    }
+                } catch (e) {
+                    console.warn("無法取得 tw_stock_map.json，將直接使用名稱搜尋報價", e);
+                }
+
                 // 渲染投信公司列表
                 if (fundsListContainer) {
                     fundsListContainer.innerHTML = '';
@@ -278,7 +372,7 @@ def apply_patch(target_path=TARGET_FILE):
                 console.error("載入長期佈局資料失敗:", err);
                 let errObj;
                 try { errObj = JSON.parse(err.message); } catch (e) { errObj = { error: err.message }; }
-                if (tableBody) tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:30px; color:#ef4444;">❌ 無法載入資料: ${errObj.error}</td></tr>`;
+                if (tableBody) tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:#ef4444;">❌ 無法載入資料: ${errObj.error}</td></tr>`;
                 if (fundsListContainer) fundsListContainer.innerHTML = `<div style="text-align:center; color:#ef4444; padding: 20px;">❌ 載入失敗</div>`;
             }
         }
@@ -342,10 +436,20 @@ def apply_patch(target_path=TARGET_FILE):
                 sourceList = (globalRawLongTermPayload && globalRawLongTermPayload.candidates_base) ? globalRawLongTermPayload.candidates_base : [];
             } else if (currentLongTermMonthMode === 'diff') {
                 sourceList = (globalLongTermCandidates || []).filter(item => item.status === 'new' || item.status === 'increase' || item.status === 'decrease');
+                
+                // 兩期差異排序重構：以 |增減張數絕對值| 降冪排序，張數為 0 者 (境外個股) 自動排在最後面
                 sourceList.sort((a, b) => {
-                    if (a.status === 'new' && b.status !== 'new') return -1;
-                    if (a.status !== 'new' && b.status === 'new') return 1;
-                    return (b.diff_count - a.diff_count) || (b.diff_qty - a.diff_qty);
+                    const aQtyAbs = Math.abs(parseFloat(a.diff_qty) || 0);
+                    const bQtyAbs = Math.abs(parseFloat(b.diff_qty) || 0);
+                    if (bQtyAbs !== aQtyAbs) {
+                        return bQtyAbs - aQtyAbs; // 張數異動絕對值大者排前
+                    }
+                    const aCountAbs = Math.abs(parseInt(a.diff_count) || 0);
+                    const bCountAbs = Math.abs(parseInt(b.diff_count) || 0);
+                    if (bCountAbs !== aCountAbs) {
+                        return bCountAbs - aCountAbs; // 基金檔數異動量
+                    }
+                    return (b.total_valid || b.fund_count || 0) - (a.total_valid || a.fund_count || 0);
                 });
             } else {
                 sourceList = globalLongTermCandidates || [];
@@ -375,7 +479,7 @@ def apply_patch(target_path=TARGET_FILE):
             const displayList = filteredCandidates.slice(0, topN);
 
             if (displayList.length === 0) {
-                tableBody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding:30px; color:#94a3b8;">📭 目前沒有符合篩選條件的個股</td></tr>`;
+                tableBody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding:30px; color:#94a3b8;">📭 目前沒有符合篩選條件的個股</td></tr>`;
                 return;
             }
 
@@ -452,7 +556,15 @@ def apply_patch(target_path=TARGET_FILE):
                 tr.id = 'row_candidate_' + item.stock_name;
                 tr.innerHTML = `
                     <td style="padding:10px; font-weight:700; font-size:0.9rem;">#${index + 1}</td>
-                    <td style="padding:10px; font-weight:700; color:#818cf8; font-size:0.95rem;">${item.stock_name}</td>
+                    <td style="padding:10px; font-weight:700; font-size:0.95rem;">
+                        <a href="javascript:void(0)" onclick="openStockExternalQuote('${item.stock_name}')" 
+                           title="點擊在新分頁開啟外部行情走勢"
+                           style="color:#6366f1; text-decoration:none; display:inline-flex; align-items:center; gap:4px; transition:all 0.2s; cursor:pointer;" 
+                           onmouseover="this.style.color='#4338ca'; this.style.textDecoration='underline';" 
+                           onmouseout="this.style.color='#6366f1'; this.style.textDecoration='none';">
+                            ${item.stock_name} <span style="font-size:0.75rem; opacity:0.75;">↗</span>
+                        </a>
+                    </td>
                     <td style="padding:10px; text-align:center;">
                         <button onclick="showHoldingFundsDetail('${item.stock_name}')" style="background: rgba(168, 85, 247, 0.15); color: #a855f7; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.9rem; border: 1px solid rgba(168, 85, 247, 0.4); cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(168, 85, 247, 0.3)'" onmouseout="this.style.background='rgba(168, 85, 247, 0.15)'">
                             ${mfCount} 檔
@@ -472,9 +584,6 @@ def apply_patch(target_path=TARGET_FILE):
                     <td style="padding:10px; text-align:right;">
                         <div style="font-weight:bold; color: #38bdf8; font-size:0.9rem;">${etfQty.toLocaleString()} 張</div>
                         ${etfQtyDiffHtml}
-                    </td>
-                    <td style="padding:10px; text-align:center;">
-                        <button onclick="alert('基本面分析建置中，敬請期待 (目前標的: ${item.stock_name})')" style="padding: 4px 8px; font-size: 0.85rem; background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.4); color: #60a5fa; border-radius: 6px; cursor: pointer;">🔍 分析</button>
                     </td>
                 `;
                 tableBody.appendChild(tr);
@@ -700,7 +809,7 @@ def apply_patch(target_path=TARGET_FILE):
 
     if start_idx != -1 and end_idx != -1:
         html = html[:start_idx] + new_js_block + "\n        " + html[end_idx:]
-        print("✅ 3. 替換 JavaScript 核心邏輯 (單位更正為張、柱狀圖差異括號、官方代號 Tooltip) 完成")
+        print("✅ 3. 替換 JavaScript 核心邏輯 (外鏈開啟、兩期差異依異動張數幅度排序、取消分析欄位) 完成")
     else:
         print(f"⚠️ 3. 未找到 JS 區塊邊界 (start_idx={start_idx}, end_idx={end_idx})")
 
