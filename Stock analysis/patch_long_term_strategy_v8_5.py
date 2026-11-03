@@ -3,8 +3,9 @@
 ================================================================================
 長期佈局策略視覺呈現優化補丁 (patch_long_term_strategy_v8_5.py)
 1. 候選清單表格取消獨立欄位，改在「共同基金數 / ETF數」與「持有數量」下方換行小字括號說明差異
-2. 右側柱狀圖數字後方增加括號顯示該檔基金/ETF的持股差異 (例如: 12,000 (+2,000)、(新進)、(持平))
-3. 柱狀圖 Tooltip 標題精準顯示 ETF 官方證券代號 (如 0050、00406A) 或基金代號與簡稱
+2. 將持股數量單位統一修正為「張」(因資料源單位為千股=張)
+3. 右側柱狀圖數字後方增加括號顯示該檔基金/ETF的持股差異 (例如: 12,000 張 (+2,000 張)、(新進)、(持平))
+4. 柱狀圖 Tooltip 標題精準顯示 ETF 官方證券代號 (如 0050、00406A) 或基金代號與簡稱
 ================================================================================
 """
 
@@ -21,7 +22,7 @@ SERVER_PUBLIC_DIR = os.path.join(SCRIPT_DIR, "修正版_V6_Server", "public")
 TARGET_FILE = os.path.join(SERVER_PUBLIC_DIR, "dashboard_v8_4_backup.html")
 
 def apply_patch(target_path=TARGET_FILE):
-    print(f"正在更新長期佈局策略至: {target_path} ...")
+    print(f"正在更新長期佈局策略 (單位更正為張) 至: {target_path} ...")
     with open(target_path, 'r', encoding='utf-8') as f:
         html = f.read()
 
@@ -83,23 +84,37 @@ def apply_patch(target_path=TARGET_FILE):
     if old_scale_end in html:
         html = html.replace(old_scale_end, new_scale_end)
 
-    # 2. 恢復原本乾淨的 7 欄表頭 (移除 th_long_term_trend)
-    header_with_trend = """                                    <th style="padding:10px; font-weight:700;">排名</th>
+    # 2. 7 欄表頭加上單位 (張)
+    header_variants = [
+        """                                    <th style="padding:10px; font-weight:700;">排名</th>
                                     <th style="padding:10px; font-weight:700;">個股名稱</th>
                                     <th id="th_long_term_trend" style="padding:10px; font-weight:700; color:#f59e0b;">異動趨勢 (vs 07月)</th>
-                                    <th style="padding:10px; font-weight:700; color:#a855f7;">共同基金數</th>"""
-
-    clean_header = """                                    <th style="padding:10px; font-weight:700;">排名</th>
+                                    <th style="padding:10px; font-weight:700; color:#a855f7;">共同基金數</th>
+                                    <th style="padding:10px; font-weight:700; color:#38bdf8;">ETF數</th>
+                                    <th style="padding:10px; font-weight:700; color:#a855f7;">共同基金總持股</th>
+                                    <th style="padding:10px; font-weight:700; color:#38bdf8;">ETF總持股</th>""",
+        """                                    <th style="padding:10px; font-weight:700;">排名</th>
                                     <th style="padding:10px; font-weight:700;">個股名稱</th>
-                                    <th style="padding:10px; font-weight:700; color:#a855f7;">共同基金數</th>"""
+                                    <th style="padding:10px; font-weight:700; color:#a855f7;">共同基金數</th>
+                                    <th style="padding:10px; font-weight:700; color:#38bdf8;">ETF數</th>
+                                    <th style="padding:10px; font-weight:700; color:#a855f7;">共同基金總持股</th>
+                                    <th style="padding:10px; font-weight:700; color:#38bdf8;">ETF總持股</th>"""
+    ]
 
-    if header_with_trend in html:
-        html = html.replace(header_with_trend, clean_header)
-        print("✅ 2. 移除獨立異動趨勢欄位，恢復 7 欄緊湊排版完成")
-    else:
-        print("ℹ️ 2. 表格表頭已為 7 欄模式")
+    clean_header_with_unit = """                                    <th style="padding:10px; font-weight:700;">排名</th>
+                                    <th style="padding:10px; font-weight:700;">個股名稱</th>
+                                    <th style="padding:10px; font-weight:700; color:#a855f7;">共同基金數</th>
+                                    <th style="padding:10px; font-weight:700; color:#38bdf8;">ETF數</th>
+                                    <th style="padding:10px; font-weight:700; color:#a855f7;">共同基金總持股 (張)</th>
+                                    <th style="padding:10px; font-weight:700; color:#38bdf8;">ETF總持股 (張)</th>"""
 
-    # 3. 替換/升級 JavaScript 邏輯 (包含 ETF 代號精準比對、換行括號說明、長條圖數字後差異標註)
+    for hv in header_variants:
+        if hv in html:
+            html = html.replace(hv, clean_header_with_unit)
+            print("✅ 2. 表頭單位更正為 (張) 完成")
+            break
+
+    # 3. 替換/升級 JavaScript 邏輯 (包含 ETF 代號精準比對、換行括號說明、單位張更正、長條圖數字後差異標註)
     old_js_block_start = """        async function loadLongTermData() {"""
     if "let globalRawLongTermPayload = null;" in html:
         old_js_block_start = """        let globalRawLongTermPayload = null;"""
@@ -291,7 +306,7 @@ def apply_patch(target_path=TARGET_FILE):
             const scaleThreshold = scaleFilterEle ? parseFloat(scaleFilterEle.value) : 0;
             const isBaseMonth = (currentLongTermMonthMode === 'base');
 
-            // 建立 2026-07 基期持股統計索引，供比對各單元格增減
+            // 建立 2026-07 基期持股統計索引，供比對各單元格增減 (單位: 張)
             const baseStatsMap = {};
             if (globalRawLongTermPayload && globalRawLongTermPayload.candidates_base) {
                 globalRawLongTermPayload.candidates_base.forEach(b => {
@@ -385,7 +400,7 @@ def apply_patch(target_path=TARGET_FILE):
                     });
                 }
 
-                // 計算各自與 2026-07 基期的差異
+                // 計算各自與 2026-07 基期的差異 (單位: 張)
                 let mfCountDiffHtml = "", etfCountDiffHtml = "", mfQtyDiffHtml = "", etfQtyDiffHtml = "";
 
                 if (!isBaseMonth) {
@@ -412,23 +427,23 @@ def apply_patch(target_path=TARGET_FILE):
                         else etfCountDiffHtml = `<div style="font-size:0.75rem; color:#94a3b8; margin-top:3px;">(持平)</div>`;
                     }
 
-                    // 3. 共同基金總持股差異
+                    // 3. 共同基金總持股差異 (單位: 張)
                     if (isNewStock) {
-                        mfQtyDiffHtml = `<div style="font-size:0.75rem; color:#ef4444; font-weight:700; margin-top:2px;">(+${mfQty.toLocaleString()} 股)</div>`;
+                        mfQtyDiffHtml = `<div style="font-size:0.75rem; color:#ef4444; font-weight:700; margin-top:2px;">(+${mfQty.toLocaleString()} 張)</div>`;
                     } else {
                         const d = mfQty - bInfo.mfQty;
-                        if (d > 0) mfQtyDiffHtml = `<div style="font-size:0.75rem; color:#10b981; font-weight:700; margin-top:2px;">(+${d.toLocaleString()} 股)</div>`;
-                        else if (d < 0) mfQtyDiffHtml = `<div style="font-size:0.75rem; color:#f97316; font-weight:700; margin-top:2px;">(${d.toLocaleString()} 股)</div>`;
+                        if (d > 0) mfQtyDiffHtml = `<div style="font-size:0.75rem; color:#10b981; font-weight:700; margin-top:2px;">(+${d.toLocaleString()} 張)</div>`;
+                        else if (d < 0) mfQtyDiffHtml = `<div style="font-size:0.75rem; color:#f97316; font-weight:700; margin-top:2px;">(${d.toLocaleString()} 張)</div>`;
                         else mfQtyDiffHtml = `<div style="font-size:0.75rem; color:#94a3b8; margin-top:2px;">(持平)</div>`;
                     }
 
-                    // 4. ETF總持股差異
+                    // 4. ETF總持股差異 (單位: 張)
                     if (isNewStock) {
-                        etfQtyDiffHtml = `<div style="font-size:0.75rem; color:#ef4444; font-weight:700; margin-top:2px;">(+${etfQty.toLocaleString()} 股)</div>`;
+                        etfQtyDiffHtml = `<div style="font-size:0.75rem; color:#ef4444; font-weight:700; margin-top:2px;">(+${etfQty.toLocaleString()} 張)</div>`;
                     } else {
                         const d = etfQty - bInfo.etfQty;
-                        if (d > 0) etfQtyDiffHtml = `<div style="font-size:0.75rem; color:#10b981; font-weight:700; margin-top:2px;">(+${d.toLocaleString()} 股)</div>`;
-                        else if (d < 0) etfQtyDiffHtml = `<div style="font-size:0.75rem; color:#f97316; font-weight:700; margin-top:2px;">(${d.toLocaleString()} 股)</div>`;
+                        if (d > 0) etfQtyDiffHtml = `<div style="font-size:0.75rem; color:#10b981; font-weight:700; margin-top:2px;">(+${d.toLocaleString()} 張)</div>`;
+                        else if (d < 0) etfQtyDiffHtml = `<div style="font-size:0.75rem; color:#f97316; font-weight:700; margin-top:2px;">(${d.toLocaleString()} 張)</div>`;
                         else etfQtyDiffHtml = `<div style="font-size:0.75rem; color:#94a3b8; margin-top:2px;">(持平)</div>`;
                     }
                 }
@@ -451,11 +466,11 @@ def apply_patch(target_path=TARGET_FILE):
                         ${etfCountDiffHtml}
                     </td>
                     <td style="padding:10px; text-align:right;">
-                        <div style="font-weight:bold; color: #a855f7; font-size:0.9rem;">${mfQty.toLocaleString()}</div>
+                        <div style="font-weight:bold; color: #a855f7; font-size:0.9rem;">${mfQty.toLocaleString()} 張</div>
                         ${mfQtyDiffHtml}
                     </td>
                     <td style="padding:10px; text-align:right;">
-                        <div style="font-weight:bold; color: #38bdf8; font-size:0.9rem;">${etfQty.toLocaleString()}</div>
+                        <div style="font-weight:bold; color: #38bdf8; font-size:0.9rem;">${etfQty.toLocaleString()} 張</div>
                         ${etfQtyDiffHtml}
                     </td>
                     <td style="padding:10px; text-align:center;">
@@ -475,13 +490,13 @@ def apply_patch(target_path=TARGET_FILE):
             document.getElementById('detail_chart_placeholder').style.display = 'none';
             document.getElementById('detail_charts_wrapper').style.display = 'flex';
 
-            // 找出該個股對應的基金代號清單 (包含 qty)
+            // 找出該個股對應的基金代號清單 (包含 qty，單位: 張)
             const stockData = globalLongTermCandidates.find(s => s.stock_name === stockName);
             if (!stockData || !stockData.funds) return;
 
             const targetFundObjs = stockData.funds; // [{code, qty}]
 
-            // 取得該個股在 2026-07 基期的持股清單 (供柱狀圖計算單檔增減)
+            // 取得該個股在 2026-07 基期的持股清單 (供柱狀圖計算單檔增減，單位: 張)
             const baseStock = (globalRawLongTermPayload && globalRawLongTermPayload.candidates_base) 
                 ? globalRawLongTermPayload.candidates_base.find(b => b.stock_name === stockName) : null;
             const baseFundsMap = {};
@@ -506,10 +521,10 @@ def apply_patch(target_path=TARGET_FILE):
                                 const prevQty = baseFundsMap[f.code];
                                 const dQty = currQty - prevQty;
                                 if (dQty > 0) {
-                                    diffText = `(+${dQty.toLocaleString()})`;
+                                    diffText = `(+${dQty.toLocaleString()} 張)`;
                                     diffColor = "#10b981";
                                 } else if (dQty < 0) {
-                                    diffText = `(${dQty.toLocaleString()})`;
+                                    diffText = `(${dQty.toLocaleString()} 張)`;
                                     diffColor = "#f97316";
                                 } else {
                                     diffText = `(持平)`;
@@ -539,7 +554,7 @@ def apply_patch(target_path=TARGET_FILE):
             let mutualFunds = foundFunds.filter(f => !isFundETF(f.code, f.name));
             let etfFunds = foundFunds.filter(f => isFundETF(f.code, f.name));
 
-            // 依據 持股數量(qty) 排序
+            // 依據 持股數量(qty: 張) 排序
             mutualFunds.sort((a, b) => (b.qty || 0) - (a.qty || 0));
             etfFunds.sort((a, b) => (b.qty || 0) - (a.qty || 0));
 
@@ -564,7 +579,7 @@ def apply_patch(target_path=TARGET_FILE):
                             meta.data.forEach((bar, index) => {
                                 const item = chart.dataListRef ? chart.dataListRef[index] : null;
                                 const val = dataset.data[index] || 0;
-                                const valStr = ' ' + val.toLocaleString();
+                                const valStr = ' ' + val.toLocaleString() + ' 張';
                                 ctx.fillStyle = textColor;
                                 ctx.fillText(valStr, bar.x + 4, bar.y);
 
@@ -606,7 +621,7 @@ def apply_patch(target_path=TARGET_FILE):
                         indexAxis: 'y',
                         responsive: true,
                         maintainAspectRatio: false,
-                        layout: { padding: { right: 110 } },
+                        layout: { padding: { right: 120 } },
                         plugins: {
                             legend: { display: false },
                             tooltip: {
@@ -630,7 +645,7 @@ def apply_patch(target_path=TARGET_FILE):
                                         const scaleStr = scale > 0 ? scale + ' 億元' : '未知';
                                         const diffDesc = fund.diffText ? ` (前期差異: ${fund.diffText})` : '';
                                         return [
-                                            ' 持股數: ' + context.raw.toLocaleString() + ' 股' + diffDesc,
+                                            ' 持股張數: ' + context.raw.toLocaleString() + ' 張' + diffDesc,
                                             ' 基金規模: ' + scaleStr
                                         ];
                                     }
@@ -665,8 +680,8 @@ def apply_patch(target_path=TARGET_FILE):
                 charts[canvasId] = newChart;
             };
 
-            renderChart('detailHoldingChart', top10Mutual, 'rgba(168, 85, 247, 0.7)', '#a855f7', '持股數 (共同基金)');
-            renderChart('detailETFChart', top10ETF, 'rgba(56, 189, 248, 0.7)', '#38bdf8', '持股數 (ETF)');
+            renderChart('detailHoldingChart', top10Mutual, 'rgba(168, 85, 247, 0.7)', '#a855f7', '持股張數 (共同基金)');
+            renderChart('detailETFChart', top10ETF, 'rgba(56, 189, 248, 0.7)', '#38bdf8', '持股張數 (ETF)');
 
             setTimeout(() => {
                 const panel = document.getElementById('long_term_detail_panel');
@@ -685,7 +700,7 @@ def apply_patch(target_path=TARGET_FILE):
 
     if start_idx != -1 and end_idx != -1:
         html = html[:start_idx] + new_js_block + "\n        " + html[end_idx:]
-        print("✅ 3. 替換 JavaScript 核心邏輯 (括號換行說明、柱狀圖差異括號、官方代號 Tooltip) 完成")
+        print("✅ 3. 替換 JavaScript 核心邏輯 (單位更正為張、柱狀圖差異括號、官方代號 Tooltip) 完成")
     else:
         print(f"⚠️ 3. 未找到 JS 區塊邊界 (start_idx={start_idx}, end_idx={end_idx})")
 
