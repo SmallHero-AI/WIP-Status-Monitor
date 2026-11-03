@@ -33,7 +33,7 @@
         "code": "5546",
         "name": "永固-KY",
         "type": "short",
-        "strategy": "跌破樞軸(Pivot)+RSI轉弱 & 10%停利 / 6%停損 (波段型)"
+        "strategy": "跌破樞軸(Pivot)+RSI轉弱 & 8%停利 / 8%停損 (精配型)"
     },
     "6165_long": {
         "code": "6165",
@@ -59,17 +59,11 @@
         "type": "long",
         "strategy": "S1支撐不破+MACD紅柱增長 & 10%停利 / 6%停損 (波段型)"
     },
-    "3607_long": {
-        "code": "3607",
-        "name": "谷崧",
-        "type": "long",
-        "strategy": "極度超跌共振 (BIAS+RSI+MFI) & RSI過熱(RSI>70)離場"
-    },
     "4148_short": {
         "code": "4148",
         "name": "全宇生技-KY",
         "type": "short",
-        "strategy": "R1壓力不破+MACD綠柱增長 & 10%停利 / 6%停損 (波段型)"
+        "strategy": "R1壓力不破+MACD綠柱增長 & 8%停利 / 8%停損 (精配型)"
     },
     "3706_long": {
         "code": "3706",
@@ -88,12 +82,6 @@
         "name": "國票金",
         "type": "long",
         "strategy": "中長期多頭+RSI低檔轉強 & 8%停利 / 8%停損 (精配型)"
-    },
-    "2546_long": {
-        "code": "2546",
-        "name": "根基",
-        "type": "long",
-        "strategy": "雙重均線突破+MACD翻紅 & 6%停利 / 6%停損 (穩健型)"
     },
     "2603_long": {
         "code": "2603",
@@ -124,5 +112,11 @@
         "name": "大統新創",
         "type": "long",
         "strategy": "雙保險超跌：BIAS超賣+布林下軌觸及 & 8%停利 / 8%停損 (精配型)"
+    },
+    "2363_long": {
+        "code": "2363",
+        "name": "矽統",
+        "type": "long",
+        "strategy": "雙保險超跌：BIAS超賣+布林下軌觸及 & MACD柱狀體縮小離場"
     }
 }
