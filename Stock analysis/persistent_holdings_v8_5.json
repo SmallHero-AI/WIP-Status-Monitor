@@ -23,12 +23,6 @@
         "type": "long",
         "strategy": "突破樞軸(Pivot)+RSI轉強 & 8%停利 / 8%停損 (精配型)"
     },
-    "2855_long": {
-        "code": "2855",
-        "name": "統一證",
-        "type": "long",
-        "strategy": "EOM動能突破+均線多頭 & 8%停利 / 8%停損 (精配型)"
-    },
     "5546_short": {
         "code": "5546",
         "name": "永固-KY",
@@ -63,13 +57,7 @@
         "code": "4148",
         "name": "全宇生技-KY",
         "type": "short",
-        "strategy": "R1壓力不破+MACD綠柱增長 & 8%停利 / 8%停損 (精配型)"
-    },
-    "3706_long": {
-        "code": "3706",
-        "name": "神達",
-        "type": "long",
-        "strategy": "S1支撐不破+MACD紅柱增長 & 8%停利 / 8%停損 (精配型)"
+        "strategy": "R1壓力不破+MACD綠柱增長 & 10%停利 / 6%停損 (波段型)"
     },
     "1456_short": {
         "code": "1456",
