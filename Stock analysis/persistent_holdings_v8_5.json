@@ -1,10 +1,4 @@
 {
-    "3046_long": {
-        "code": "3046",
-        "name": "建碁",
-        "type": "long",
-        "strategy": "極度超跌共振 (BIAS+RSI+MFI) & 12%停利 / 6%停損 (積極型)"
-    },
     "2488_long": {
         "code": "2488",
         "name": "漢平",
@@ -34,18 +28,6 @@
         "name": "浪凡",
         "type": "long",
         "strategy": "雙保險超跌：BIAS超賣+布林下軌觸及 & 6%停利 / 6%停損 (穩健型)"
-    },
-    "2330_long": {
-        "code": "2330",
-        "name": "台積電",
-        "type": "long",
-        "strategy": "動能共振：EOM突破+MACD>0+RSI>50 & 10%停利 / 6%停損 (波段型)"
-    },
-    "2451_long": {
-        "code": "2451",
-        "name": "創見",
-        "type": "long",
-        "strategy": "中長期多頭+RSI低檔轉強 & 12%停利 / 6%停損 (積極型)"
     },
     "4441_long": {
         "code": "4441",
@@ -106,5 +88,17 @@
         "name": "矽統",
         "type": "long",
         "strategy": "雙保險超跌：BIAS超賣+布林下軌觸及 & MACD柱狀體縮小離場"
+    },
+    "3311_long": {
+        "code": "3311",
+        "name": "閎暉",
+        "type": "long",
+        "strategy": "極度超跌共振 (BIAS+RSI+MFI) & 波段追蹤：ATR追蹤停損 (最高價拉回3*ATR離場)"
+    },
+    "1476_short": {
+        "code": "1476",
+        "name": "儒鴻",
+        "type": "short",
+        "strategy": "雙保險超買：BIAS超買+布林上軌觸及 & RSI超賣(RSI<30)回補"
     }
 }
