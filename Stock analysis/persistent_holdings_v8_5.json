@@ -23,12 +23,6 @@
         "type": "short",
         "strategy": "跌破樞軸(Pivot)+RSI轉弱 & 8%停利 / 8%停損 (精配型)"
     },
-    "6165_long": {
-        "code": "6165",
-        "name": "浪凡",
-        "type": "long",
-        "strategy": "雙保險超跌：BIAS超賣+布林下軌觸及 & 6%停利 / 6%停損 (穩健型)"
-    },
     "4441_long": {
         "code": "4441",
         "name": "振大環球",

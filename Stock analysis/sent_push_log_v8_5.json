@@ -208,5 +208,11 @@
     "fingerprint": "2026-11-06_entry:2363,6165_exit:1476",
     "entries_count": 2,
     "exits_count": 1
+  },
+  "2026-11-10": {
+    "sent_time": "2026-11-10 14:57:23",
+    "fingerprint": "2026-11-10_entry:5546_exit:2363,2850,3311",
+    "entries_count": 1,
+    "exits_count": 3
   }
 }
