@@ -9,7 +9,7 @@
         "code": "2850",
         "name": "新產",
         "type": "long",
-        "strategy": "布林中軌支撐+MACD紅柱 & 8%停利 / 8%停損 (精配型)"
+        "strategy": "EOM動能突破+均線多頭 & 8%停利 / 8%停損 (精配型)"
     },
     "2891_long": {
         "code": "2891",
@@ -59,22 +59,16 @@
         "type": "long",
         "strategy": "雙保險超跌：BIAS超賣+布林下軌觸及 & 8%停利 / 8%停損 (精配型)"
     },
-    "2363_long": {
-        "code": "2363",
-        "name": "矽統",
-        "type": "long",
-        "strategy": "雙保險超跌：BIAS超賣+布林下軌觸及 & MACD柱狀體縮小離場"
-    },
-    "3311_long": {
-        "code": "3311",
-        "name": "閎暉",
-        "type": "long",
-        "strategy": "極度超跌共振 (BIAS+RSI+MFI) & 12%停利 / 6%停損 (積極型)"
-    },
     "1476_short": {
         "code": "1476",
         "name": "儒鴻",
         "type": "short",
         "strategy": "雙保險超買：BIAS超買+布林上軌觸及 & RSI超賣(RSI<30)回補"
+    },
+    "3029_long": {
+        "code": "3029",
+        "name": "零壹",
+        "type": "long",
+        "strategy": "S1支撐不破+MACD紅柱增長 & 8%停利 / 8%停損 (精配型)"
     }
 }
