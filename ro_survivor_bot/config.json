@@ -1,0 +1,34 @@
+{
+  "progression": {
+    "adaptive": true,
+    "currentStage": 1,
+    "maxStage": 10
+  },
+  "watchdog": {
+    "timeoutMs": 60000,
+    "checkIntervalMs": 3000
+  },
+  "combat": {
+    "tickRateMs": 100,
+    "kitingRadius": 200,
+    "emergencyDodgeDistance": 80,
+    "repulsionWeight": 1.5,
+    "attractionWeight": 1.0
+  },
+  "skills": {
+    "priorityKeywords": [
+      "暴風雪", "Storm Gust", "Blizzard",
+      "箭雨", "Arrow Shower",
+      "雷鳴術", "Lord of Vermilion", "Thunder",
+      "隕石術", "Meteor",
+      "治癒術", "Heal", "HP", "生命",
+      "加速術", "Increase AGI", "Speed", "移動速度",
+      "攻擊力", "ATK", "Damage",
+      "攻擊速度", "ASPD", "Attack Speed",
+      "冷卻", "Cooldown", "CDR",
+      "範圍", "Area", "AOE",
+      "暴擊", "CRIT", "Critical"
+    ]
+  }
+}
+

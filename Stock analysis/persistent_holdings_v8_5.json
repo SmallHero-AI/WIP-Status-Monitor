@@ -70,5 +70,17 @@
         "name": "零壹",
         "type": "long",
         "strategy": "S1支撐不破+MACD紅柱增長 & 8%停利 / 8%停損 (精配型)"
+    },
+    "2330_long": {
+        "code": "2330",
+        "name": "台積電",
+        "type": "long",
+        "strategy": "布林中軌支撐+MACD紅柱 & 6%停利 / 6%停損 (穩健型)"
+    },
+    "2453_short": {
+        "code": "2453",
+        "name": "凌群",
+        "type": "short",
+        "strategy": "極度超買共振 (BIAS+RSI+MFI) & RSI超賣(RSI<30)回補"
     }
 }

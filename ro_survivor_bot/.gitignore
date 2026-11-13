@@ -1,0 +1,7 @@
+node_modules/
+user_data/
+.env
+logs/
+*.log
+*.png
+test_login.js
