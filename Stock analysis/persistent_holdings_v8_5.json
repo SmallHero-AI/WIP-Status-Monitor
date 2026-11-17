@@ -53,12 +53,6 @@
         "type": "long",
         "strategy": "雙保險超跌：BIAS超賣+布林下軌觸及 & 波段追蹤：ATR追蹤停損 (最高價拉回3*ATR離場)"
     },
-    "1470_long": {
-        "code": "1470",
-        "name": "大統新創",
-        "type": "long",
-        "strategy": "雙保險超跌：BIAS超賣+布林下軌觸及 & 8%停利 / 8%停損 (精配型)"
-    },
     "1476_short": {
         "code": "1476",
         "name": "儒鴻",
@@ -82,5 +76,11 @@
         "name": "凌群",
         "type": "short",
         "strategy": "極度超買共振 (BIAS+RSI+MFI) & RSI超賣(RSI<30)回補"
+    },
+    "2382_long": {
+        "code": "2382",
+        "name": "廣達",
+        "type": "long",
+        "strategy": "極度超跌共振 (BIAS+RSI+MFI) & 波段追蹤：ATR追蹤停損 (最高價拉回3*ATR離場)"
     }
 }
