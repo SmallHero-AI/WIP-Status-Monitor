@@ -53,8 +53,7 @@ Stock analysis/Stock original/auto_export/
 Toddler_Video_Generator/
 
 # RO Survivor Bot & Portable Builds (Excluded from GitHub)
-ro_survivor_bot/
-ro_survivor_bot_v2/
+ro_survivor_bot*/
 ro_survivor_bot_portable/
 ro_survivor_bot_v2_portable/
 RO_Survivors_Bot*/
