@@ -44,6 +44,86 @@
   (function installEarlyHook() {
     if (installEarlyHook.done) return;
     installEarlyHook.done = true;
+
+    // 清除原生反外掛 7 天暗記 (ro_gfx_cal)，解除 springTrap 陷阱
+    try {
+      localStorage.removeItem("ro_gfx_cal");
+    } catch (_) {}
+
+    // 偽裝 Function.prototype.toString，確保所有被攔截的函數通過 nu() 的 [native code] 原生性校驗
+    const origFnToString = Function.prototype.toString;
+    const disguisedSet = new WeakSet();
+    Function.prototype.toString = function () {
+      if (disguisedSet.has(this)) {
+        return `function ${this.name || ""}() { [native code] }`;
+      }
+      return origFnToString.apply(this, arguments);
+    };
+
+    // 1. 攔截 Storage.prototype.setItem：永久禁止寫入 7 天暗記 ro_gfx_cal
+    const origStorageSetItem = Storage.prototype.setItem;
+    const hookedStorageSetItem = function (k, v) {
+      if (k === "ro_gfx_cal") {
+        return; // 靜默阻斷暗記寫入
+      }
+      return origStorageSetItem.apply(this, arguments);
+    };
+    disguisedSet.add(hookedStorageSetItem);
+    Storage.prototype.setItem = hookedStorageSetItem;
+
+    // 2. 攔截 EventTarget.prototype.addEventListener：過濾原生反外掛 Zq 對未信任事件 (isTrusted: false) 的採集
+    const origAEL = EventTarget.prototype.addEventListener;
+    const hookedAEL = function (type, listener, options) {
+      if (this === window && (type === "click" || type === "keydown" || type === "keyup" || type === "pointerdown")) {
+        if (typeof listener === "function") {
+          let fnStr = "";
+          try { fnStr = origFnToString.call(listener); } catch (_) {}
+          if (fnStr.includes("isTrusted") && fnStr.includes("performance.now()")) {
+            const safeListener = function (e) {
+              // 核心關鍵：若為腳本模擬的非原生未信任合成事件，直接阻斷，杜絕 Qh(點擊) 與 ZS(按鍵) 累積滿 10 次觸發 In() 與 springTrap
+              if (e && !e.isTrusted) return;
+              return listener.apply(this, arguments);
+            };
+            return origAEL.call(this, type, safeListener, options);
+          }
+        }
+      }
+      return origAEL.apply(this, arguments);
+    };
+    disguisedSet.add(hookedAEL);
+    EventTarget.prototype.addEventListener = hookedAEL;
+
+    // 3. 攔截 window.fetch：阻斷特徵偵測、外掛截圖與程式碼外流封包，淨化關卡結算回報
+    const origFetch = window.fetch;
+    const hookedFetch = async function (input, init) {
+      const url = typeof input === "string" ? input : (input && input.url ? input.url : "");
+      if (typeof url === "string" && (url.endsWith("/env") || url.includes("/env?"))) {
+        try {
+          if (init && init.body) {
+            const body = JSON.parse(init.body);
+            // 阻斷外掛特徵偵測、外掛截圖、自訂 DOM 偵測與源碼竊取封包
+            if (body.k === "g" || body.k === "s" || body.k === "p" || body.img || body.m === "trap") {
+              return new Response(JSON.stringify({ ok: true }), {
+                status: 200,
+                headers: { "content-type": "application/json" }
+              });
+            }
+            // 淨化關卡結算回報：將未信任點擊/按鍵統計強制歸零，向官方呈報 100% 正常玩家數據
+            if (body.k === "r") {
+              body.uk = 0;
+              body.up = 0;
+              body.uc = 0;
+              body.nat = [];
+              init.body = JSON.stringify(body);
+            }
+          }
+        } catch (_) {}
+      }
+      return origFetch.apply(this, arguments);
+    };
+    disguisedSet.add(hookedFetch);
+    window.fetch = hookedFetch;
+
     const def = Object.defineProperty;
     const captureProps = new Set(["chestsOpened", "pickups", "player", "npcs", "others", "touchMove", "nameLabel"]);
     const mark = (o) => { try { captureGame(o); } catch (_) {} };
@@ -60,7 +140,7 @@
         });
       } catch (_) {}
     }
-    Object.defineProperty = function (obj, prop, desc) {
+    const hookedDefineProperty = function (obj, prop, desc) {
       try {
         if (prop === "tick" && obj && obj !== Object.prototype && desc && typeof desc.value === "function" && !desc.value.__rosPlazaTick) {
           const orig = desc.value;
@@ -84,6 +164,8 @@
       if (captureProps.has(prop) && obj && obj !== Object.prototype) mark(obj);
       return r;
     };
+    disguisedSet.add(hookedDefineProperty);
+    Object.defineProperty = hookedDefineProperty;
   })();
 
   const DATA = {"jobs":[{"id":"swordsman","name":"Swordsman","nameZh":"劍士","start":"bash","tier":"first","scaling":"melee","rank":1},{"id":"mage","name":"Mage","nameZh":"魔法師","start":"firebolt","tier":"first","scaling":"magic","rank":1},{"id":"archer","name":"Archer","nameZh":"弓箭手","start":"double_strafe","tier":"first","scaling":"ranged","rank":1},{"id":"acolyte","name":"Acolyte","nameZh":"服事","start":"heal","tier":"first","scaling":"magic","rank":1},{"id":"thief","name":"Thief","nameZh":"盜賊","start":"envenom","tier":"first","scaling":"melee","rank":1},{"id":"merchant","name":"Merchant","nameZh":"商人","start":"mammonite","tier":"first","scaling":"melee","rank":1},{"id":"taekwon","name":"Taekwon","nameZh":"跆拳少年","start":"tornado_kick","tier":"extended","scaling":"melee","rank":1},{"id":"ninja","name":"Ninja","nameZh":"忍者","start":"shuriken","tier":"extended","scaling":"ranged","rank":1},{"id":"gunslinger","name":"Gunslinger","nameZh":"神槍手","start":"triple_action","tier":"extended","scaling":"ranged","rank":1},{"id":"knight","name":"Knight","nameZh":"騎士","start":"bash","tier":"first","scaling":"melee","rank":2},{"id":"crusader","name":"Crusader","nameZh":"十字軍","start":"bash","tier":"first","scaling":"melee","rank":2},{"id":"wizard","name":"Wizard","nameZh":"巫師","start":"firebolt","tier":"first","scaling":"magic","rank":2},{"id":"sage","name":"Sage","nameZh":"賢者","start":"firebolt","tier":"first","scaling":"magic","rank":2},{"id":"hunter","name":"Hunter","nameZh":"獵人","start":"double_strafe","tier":"first","scaling":"ranged","rank":2},{"id":"bard","name":"Bard","nameF":"Dancer","nameZh":"吟遊詩人","start":"double_strafe","tier":"first","scaling":"ranged","rank":2},{"id":"priest","name":"Priest","nameZh":"祭司","start":"heal","tier":"first","scaling":"magic","rank":2},{"id":"monk","name":"Monk","nameZh":"武僧","start":"heal","tier":"first","scaling":"melee","rank":2},{"id":"assassin","name":"Assassin","nameZh":"刺客","start":"envenom","tier":"first","scaling":"melee","rank":2},{"id":"rogue","name":"Rogue","nameZh":"流氓","start":"envenom","tier":"first","scaling":"melee","rank":2},{"id":"blacksmith","name":"Blacksmith","nameZh":"鐵匠","start":"mammonite","tier":"first","scaling":"melee","rank":2},{"id":"alchemist","name":"Alchemist","nameZh":"鍊金術師","start":"mammonite","tier":"first","scaling":"melee","rank":2},{"id":"star_gladiator","name":"Star Gladiator","nameZh":"拳聖","start":"tornado_kick","tier":"extended","scaling":"melee","rank":2},{"id":"soul_linker","name":"Soul Linker","nameZh":"悟靈士","start":"tornado_kick","tier":"extended","scaling":"magic","rank":2}],"firstSkills":{"swordsman":["bash","magnum","sword_dance","shield_bash","provoke","demoralizing_shout","endure","hp_recovery"],"mage":["firebolt","coldbolt","lightning","soul_strike","napalm","fire_wall","frost_diver","sight","thunderstorm"],"archer":["double_strafe","arrow_shower","arrow_rain","arrow_repel","retreat","arcane_shot","fire_arrow","concentration"],"acolyte":["heal","holy_light","ruwach","decrease_agi","signum_crucis","aqua_benedicta","blessing","holy_smite"],"thief":["envenom","sand_attack","hiding","throw_stone","poison_bomb","shadowstep","fan_of_knives","caltrops"],"merchant":["mammonite","cart_revolution","zeny_rain","cart_rush","vending","crazy_uproar","enlarge_weight"],"taekwon":["tornado_kick","heel_drop","roundhouse","counter_kick","sprint"],"ninja":["shuriken","kunai","huuma","flaming_petals","lightning_strike"],"gunslinger":["triple_action","rapid_shower","spread_attack","desperado","ground_drift","tracking"]},"secondSkills":{"knight":["brandish_spear","charge_attack","pierce","spear_boomerang","auto_counter","bowling_bash"],"crusader":["spear_quicken","shield_charge","holy_cross","grand_cross","shield_boomerang","auto_guard"],"wizard":["meteor_storm","fire_pillar","frost_nova","storm_gust","jupitel_thunder","lord_of_vermilion"],"sage":["volcano","deluge","earth_spike","heavens_drive","hindsight","abracadabra"],"hunter":["blitz_beat","detecting","claymore_trap","sandman","beast_strafing","phantasmic_arrow"],"bard":["arrow_vulcan","dissonance","lullaby","lokis_veil","drum_battlefield","siegfried"],"priest":["sanctuary","safety_wall","benedictio","magnus_exorcismus","impositio","magnificat"],"monk":["call_spirits","finger_offensive","chain_combo","combo_finish","fury","asura_strike"],"assassin":["sonic_blow","grimtooth","enchant_poison","venom_dust","cloaking","venom_knife"],"rogue":["back_stab","raid","divest_weapon","intimidate","steal_coin","graffiti"],"blacksmith":["axe_tornado","axe_boomerang","weapon_perfection","rush_quake","greed","ore_discovery"],"alchemist":["acid_terror","demonstration","call_homunculus","summon_flora","potion_pitcher","chemical_protection"],"star_gladiator":["warmth_sun","solar_burst","full_moon_kick","new_moon_kick","falling_star","union"],"soul_linker":["esma","estin","estun","kaizel","kaahi","kaupe"]},"skills":{"bash":{"id":"bash","name":"Bash","icon":"sm_bash","kind":"active","type":"single","nameZh":"狂擊"},"magnum":{"id":"magnum","name":"Magnum Break","icon":"sm_magnum","kind":"active","type":"aoe","nameZh":"怒爆"},"sword_dance":{"id":"sword_dance","name":"Sword Dance","icon":"kn_brandishspear","kind":"active","type":"aoe","nameZh":"劍舞"},"shield_bash":{"id":"shield_bash","name":"Shield Bash","icon":"sm_shieldbash","kind":"active","type":"projectile","nameZh":"盾牌衝擊"},"provoke":{"id":"provoke","name":"Provoke","icon":"sm_provoke","kind":"active","type":"control","nameZh":"挑釁"},"demoralizing_shout":{"id":"demoralizing_shout","name":"Demoralizing Shout","icon":"dc_scream","kind":"active","type":"control","nameZh":"降低士氣的吶喊"},"endure":{"id":"endure","name":"Endure","icon":"sm_endure","kind":"active","type":"buff","nameZh":"霸體"},"hp_recovery":{"id":"hp_recovery","name":"Increase HP Recovery","icon":"sm_recovery","kind":"active","type":"buff","nameZh":"快速恢復"},"firebolt":{"id":"firebolt","name":"Fire Bolt","icon":"mg_firebolt","kind":"active","type":"multi","nameZh":"火箭術"},"coldbolt":{"id":"coldbolt","name":"Cold Bolt","icon":"mg_coldbolt","kind":"active","type":"multi","nameZh":"冰箭術"},"lightning":{"id":"lightning","name":"Lightning Bolt","icon":"mg_lightningbolt","kind":"active","type":"multi","nameZh":"雷擊術"},"soul_strike":{"id":"soul_strike","name":"Soul Strike","icon":"mg_soulstrike","kind":"active","type":"multi","nameZh":"聖靈召喚"},"napalm":{"id":"napalm","name":"Napalm Beat","icon":"mg_napalmbeat","kind":"active","type":"aoe","nameZh":"心靈爆破"},"fire_wall":{"id":"fire_wall","name":"Fire Wall","icon":"mg_firewall","kind":"active","type":"zone","nameZh":"火焰之壁"},"frost_diver":{"id":"frost_diver","name":"Frost Diver","icon":"mg_frostdiver","kind":"active","type":"single","nameZh":"冰凍術"},"sight":{"id":"sight","name":"Sight","icon":"mg_sight","kind":"active","type":"orbit","nameZh":"火狩"},"thunderstorm":{"id":"thunderstorm","name":"Thunderstorm","icon":"mg_thunderstorm","kind":"active","type":"aoe","nameZh":"雷爆術"},"double_strafe":{"id":"double_strafe","name":"Double Strafe","icon":"ac_double","kind":"active","type":"projectile","nameZh":"二連矢"},"arrow_shower":{"id":"arrow_shower","name":"Arrow Shower","icon":"ac_shower","kind":"active","type":"aoe","nameZh":"箭雨"},"arrow_rain":{"id":"arrow_rain","name":"Arrow Rain","icon":"ac_arrowrain","kind":"active","type":"aoe","nameZh":"箭矢暴雨"},"arrow_repel":{"id":"arrow_repel","name":"Arrow Repel","icon":"ac_chargearrow","kind":"active","type":"projectile","nameZh":"衝鋒箭"},"retreat":{"id":"retreat","name":"Retirada","icon":"ac_retreat","kind":"active","type":"single"},"arcane_shot":{"id":"arcane_shot","name":"Arcane Shot","icon":"ac_arcaneshot","kind":"active","type":"single","nameZh":"奧術射擊"},"fire_arrow":{"id":"fire_arrow","name":"Flecha ígnea","icon":"ac_firearrow","kind":"active","type":"aoe"},"concentration":{"id":"concentration","name":"Improve Concentration","icon":"ac_concentration","kind":"active","type":"buff","nameZh":"心神凝聚"},"heal":{"id":"heal","name":"Heal","icon":"al_heal","kind":"active","type":"aoe","nameZh":"治癒術"},"holy_light":{"id":"holy_light","name":"Holy Light","icon":"al_holylight","kind":"active","type":"multi","nameZh":"神聖之光"},"ruwach":{"id":"ruwach","name":"Ruwach","icon":"al_ruwach","kind":"active","type":"orbit"},"decrease_agi":{"id":"decrease_agi","name":"Decrease AGI","icon":"al_decagi","kind":"active","type":"control","nameZh":"緩速術"},"signum_crucis":{"id":"signum_crucis","name":"Signum Crucis","icon":"al_crucis","kind":"active","type":"zone"},"aqua_benedicta":{"id":"aqua_benedicta","name":"Aqua Benedicta","icon":"al_holywater","kind":"active","type":"zone"},"blessing":{"id":"blessing","name":"Blessing","icon":"al_blessing","kind":"active","type":"buff","nameZh":"天使之賜福"},"holy_smite":{"id":"holy_smite","name":"Golpe sagrado","icon":"pr_macemastery","kind":"active","type":"single"},"envenom":{"id":"envenom","name":"Envenom","icon":"tf_poison","kind":"active","type":"single","nameZh":"施毒"},"sand_attack":{"id":"sand_attack","name":"Sand Attack","icon":"tf_sprinklesand","kind":"active","type":"aoe","nameZh":"噴砂"},"hiding":{"id":"hiding","name":"Hiding","icon":"tf_hiding","kind":"active","type":"buff","nameZh":"隱匿"},"throw_stone":{"id":"throw_stone","name":"Throw Stone","icon":"tf_throwstone","kind":"active","type":"single","nameZh":"投擲石頭"},"poison_bomb":{"id":"poison_bomb","name":"Poison Bomb","icon":"tf_poisonbomb","kind":"active","type":"aoe","nameZh":"毒藥瓶"},"shadowstep":{"id":"shadowstep","name":"Shadowstep","icon":"tf_shadowstep","kind":"active","type":"buff","nameZh":"影步"},"fan_of_knives":{"id":"fan_of_knives","name":"Fan of Knives","icon":"tf_fanofknives","kind":"active","type":"aoe","nameZh":"飛刀扇"},"caltrops":{"id":"caltrops","name":"Caltrops","icon":"tf_caltrops","kind":"active","type":"zone","nameZh":"撒菱"},"mammonite":{"id":"mammonite","name":"Mammonite","icon":"mc_mammonite","kind":"active","type":"single","nameZh":"金錢攻擊"},"cart_revolution":{"id":"cart_revolution","name":"Cart Revolution","icon":"mc_cartrevolution","kind":"active","type":"aoe","nameZh":"手推車攻擊"},"zeny_rain":{"id":"zeny_rain","name":"Zeny Rain","icon":"mc_zenyrain","kind":"active","type":"aoe","nameZh":"金幣雨"},"cart_rush":{"id":"cart_rush","name":"Cart Rush","icon":"mc_cartrush","kind":"active","type":"aoe","nameZh":"手推車衝撞"},"vending":{"id":"vending","name":"Vending","icon":"mc_vending","kind":"active","type":"zone","nameZh":"露天商店"},"crazy_uproar":{"id":"crazy_uproar","name":"Crazy Uproar","icon":"mc_loud","kind":"active","type":"buff","nameZh":"大聲吶喊"},"enlarge_weight":{"id":"enlarge_weight","name":"Enlarge Weight Limit","icon":"mc_inccarry","kind":"active","type":"buff","nameZh":"負重量上升"},"tornado_kick":{"id":"tornado_kick","name":"Tornado Kick","icon":"tk_stormkick","kind":"active","type":"aoe","nameZh":"迴旋踢"},"heel_drop":{"id":"heel_drop","name":"Heel Drop","icon":"tk_downkick","kind":"active","type":"single","nameZh":"砸踢"},"roundhouse":{"id":"roundhouse","name":"Roundhouse","icon":"tk_turnkick","kind":"active","type":"aoe","nameZh":"轉身踢"},"counter_kick":{"id":"counter_kick","name":"Counter Kick","icon":"tk_counter","kind":"active","type":"aoe","nameZh":"還擊踢"},"sprint":{"id":"sprint","name":"Sprint","icon":"tk_run","kind":"active","type":"buff","nameZh":"跑步"},"shuriken":{"id":"shuriken","name":"Throw Shuriken","icon":"nj_syuriken","kind":"active","type":"projectile","nameZh":"投擲飛鏢"},"kunai":{"id":"kunai","name":"Throw Kunai","icon":"nj_kunai","kind":"active","type":"projectile","nameZh":"投擲飛刀"},"huuma":{"id":"huuma","name":"Throw Huuma Shuriken","icon":"nj_huuma","kind":"active","type":"projectile","nameZh":"投擲風魔飛鏢"},"flaming_petals":{"id":"flaming_petals","name":"Flaming Petals","icon":"nj_kouenka","kind":"active","type":"aoe","nameZh":"火炎花"},"lightning_strike":{"id":"lightning_strike","name":"Lightning Strike","icon":"nj_raigekisai","kind":"active","type":"aoe","nameZh":"雷擊碎"},"triple_action":{"id":"triple_action","name":"Triple Action","icon":"gs_tripleaction","kind":"active","type":"projectile","nameZh":"三連攻擊"},"rapid_shower":{"id":"rapid_shower","name":"Rapid Shower","icon":"gs_rapidshower","kind":"active","type":"projectile","nameZh":"五連擊"},"spread_attack":{"id":"spread_attack","name":"Spread Attack","icon":"gs_spreadattack","kind":"active","type":"aoe","nameZh":"火力全開"},"desperado":{"id":"desperado","name":"Desperado","icon":"gs_desperado","kind":"active","type":"aoe"},"ground_drift":{"id":"ground_drift","name":"Ground Drift","icon":"gs_grounddrift","kind":"active","type":"aoe","nameZh":"四面埋伏"},"tracking":{"id":"tracking","name":"Tracking","icon":"gs_tracking","kind":"active","type":"single","nameZh":"百步穿楊"},"brandish_spear":{"id":"brandish_spear","name":"Brandish Spear","icon":"pr_brandishspear","kind":"active","type":"aoe","tags":["melee","area","physical","neutral"],"nameZh":"騎乘攻擊"},"charge_attack":{"id":"charge_attack","name":"Charge Attack","icon":"kn_chargeatk","kind":"active","type":"single","tags":["melee","single","physical","neutral"],"nameZh":"衝鋒攻擊"},"pierce":{"id":"pierce","name":"Pierce","icon":"kn_pierce","kind":"active","type":"single","tags":["melee","single","burst","physical","neutral"],"nameZh":"連刺攻擊"},"spear_boomerang":{"id":"spear_boomerang","name":"Spear Boomerang","icon":"kn_spearboomerang","kind":"active","type":"projectile","tags":["melee","projectile","pierce","return","physical","neutral"],"nameZh":"投擲長矛攻擊"},"auto_counter":{"id":"auto_counter","name":"Counter Attack","icon":"kn_autocounter","kind":"active","type":"aoe","tags":["melee","area","physical","neutral"],"nameZh":"反擊"},"bowling_bash":{"id":"bowling_bash","name":"Bowling Bash","icon":"kn_bowlingbash","kind":"active","type":"single","tags":["melee","single","burst","physical","neutral"],"nameZh":"怪物互擊"},"spear_quicken":{"id":"spear_quicken","name":"Spear Quicken","icon":"cr_spearquicken","kind":"active","type":"buff","tags":["buff"],"nameZh":"長矛加速術"},"shield_charge":{"id":"shield_charge","name":"Shield Charge","icon":"cr_shieldcharge","kind":"active","type":"aoe","tags":["melee","area","physical","neutral"],"nameZh":"盾擊"},"holy_cross":{"id":"holy_cross","name":"Holy Cross","icon":"cr_holycross","kind":"active","type":"single","tags":["melee","single","burst","physical","holy"],"nameZh":"聖十字攻擊"},"grand_cross":{"id":"grand_cross","name":"Grand Cross","icon":"cr_grandcross","kind":"active","type":"aoe","tags":["aura","area","melee","physical","holy"],"nameZh":"聖錘 十字星"},"shield_boomerang":{"id":"shield_boomerang","name":"Shield Boomerang","icon":"cr_shieldboomerang","kind":"active","type":"projectile","tags":["melee","projectile","pierce","return","physical","neutral"],"nameZh":"迴旋盾擊"},"auto_guard":{"id":"auto_guard","name":"Auto Guard","icon":"cr_autoguard","kind":"active","type":"buff","tags":["buff"],"nameZh":"自動防禦"},"meteor_storm":{"id":"meteor_storm","name":"Meteor Storm","icon":"wz_meteor","kind":"active","type":"aoe","tags":["ground","area","magic","fire"],"nameZh":"隕石術"},"fire_pillar":{"id":"fire_pillar","name":"Fire Pillar","icon":"wz_firepillar","kind":"active","type":"aoe","tags":["ground","area","magic","fire"],"nameZh":"火柱攻擊"},"frost_nova":{"id":"frost_nova","name":"Frost Nova","icon":"wz_frostnova","kind":"active","type":"aoe","tags":["aura","area","magic","water"],"nameZh":"霜凍之術"},"storm_gust":{"id":"storm_gust","name":"Storm Gust","icon":"wz_stormgust","kind":"active","type":"aoe","tags":["ground","area","magic","water"],"nameZh":"暴風雪"},"jupitel_thunder":{"id":"jupitel_thunder","name":"Jupitel Thunder","icon":"wz_jupitel","kind":"active","type":"projectile","tags":["projectile","single","magic","wind"],"nameZh":"雷鳴術"},"lord_of_vermilion":{"id":"lord_of_vermilion","name":"Lord of Vermilion","icon":"wz_vermilion","kind":"active","type":"aoe","tags":["ground","area","magic","wind"],"nameZh":"怒雷強擊"},"volcano":{"id":"volcano","name":"Volcano","icon":"sa_volcano","kind":"active","type":"zone","tags":["ground","area","persistent","magic","fire"],"nameZh":"火元素領域"},"deluge":{"id":"deluge","name":"Deluge","icon":"sa_deluge","kind":"active","type":"zone","tags":["ground","area","persistent","magic","water"],"nameZh":"水元素領域"},"earth_spike":{"id":"earth_spike","name":"Earth Spike","icon":"wz_earthspike","kind":"active","type":"multi","tags":["ranged_strike","multi","burst","magic","earth"],"nameZh":"地震術"},"heavens_drive":{"id":"heavens_drive","name":"Heaven's Drive","icon":"wz_heavendrive","kind":"active","type":"aoe","tags":["ground","area","magic","earth"],"nameZh":"崩裂術"},"hindsight":{"id":"hindsight","name":"Hindsight","icon":"sa_autospell","kind":"active","type":"buff","tags":["buff"],"nameZh":"自動念咒"},"abracadabra":{"id":"abracadabra","name":"Abracadabra","icon":"sa_abracadabra","kind":"active","type":"aoe","tags":["aura","area","magic","neutral"],"nameZh":"隨機技能"},"blitz_beat":{"id":"blitz_beat","name":"Blitz Beat","icon":"ht_blitzbeat","kind":"active","type":"multi","tags":["ranged_strike","multi","burst","physical","neutral"],"nameZh":"閃電衝擊"},"detecting":{"id":"detecting","name":"Detecting","icon":"ht_detecting","kind":"active","type":"control","tags":["aura","area","physical","neutral"],"nameZh":"獵鷹尋敵"},"claymore_trap":{"id":"claymore_trap","name":"Claymore Trap","icon":"ht_claymoretrap","kind":"active","type":"zone","tags":["ground","area","persistent","physical","neutral"],"nameZh":"爆散陷阱"},"sandman":{"id":"sandman","name":"Sandman","icon":"ht_sandman","kind":"active","type":"control","tags":["ground","area","physical","neutral"],"nameZh":"睡魔陷阱"},"beast_strafing":{"id":"beast_strafing","name":"Beast Strafing","icon":"ht_beastbane","kind":"active","type":"projectile","tags":["projectile","single","physical","neutral"],"nameZh":"動物猛擊"},"phantasmic_arrow":{"id":"phantasmic_arrow","name":"Phantasmic Arrow","icon":"ht_phantasmic","kind":"active","type":"projectile","tags":["projectile","pierce","physical","ghost"],"nameZh":"幻影箭"},"arrow_vulcan":{"id":"arrow_vulcan","name":"Arrow Vulcan","icon":"cg_arrowvulcan","kind":"active","type":"projectile","tags":["projectile","single","physical","neutral"],"nameZh":"奧義箭亂舞"},"dissonance":{"id":"dissonance","name":"Dissonance","icon":"ba_dissonance","kind":"active","type":"aoe","tags":["aura","area","physical","neutral"],"nameZh":"不諧和音"},"lullaby":{"id":"lullaby","name":"Lullaby","icon":"bd_lullaby","kind":"active","type":"control","tags":["aura","area","neutral"],"nameZh":"搖籃曲"},"lokis_veil":{"id":"lokis_veil","name":"Loki's Veil","icon":"bd_rokisweil","kind":"active","type":"control","tags":["ground","area","persistent","neutral"],"nameZh":"洛奇的悲鳴"},"drum_battlefield":{"id":"drum_battlefield","name":"A Drum on the Battlefield","icon":"bd_drumbattlefield","kind":"active","type":"buff","tags":["buff"],"nameZh":"戰鼓震天"},"siegfried":{"id":"siegfried","name":"Invulnerable Siegfried","icon":"bd_siegfried","kind":"active","type":"buff","tags":["buff"],"nameZh":"不死神齊格弗里德"},"sanctuary":{"id":"sanctuary","name":"Sanctuary","icon":"pr_sanctuary","kind":"active","type":"zone","tags":["ground","area","persistent","magic","holy"],"nameZh":"光耀之堂"},"safety_wall":{"id":"safety_wall","name":"Safety Wall","icon":"pr_safetywall","kind":"active","type":"buff","tags":["buff"],"nameZh":"暗之障壁"},"benedictio":{"id":"benedictio","name":"Benedictio","icon":"pr_benedictio","kind":"active","type":"aoe","tags":["aura","area","magic","holy"],"nameZh":"聖母之祈福"},"magnus_exorcismus":{"id":"magnus_exorcismus","name":"Magnus Exorcismus","icon":"pr_magnus","kind":"active","type":"aoe","tags":["ground","area","magic","holy"],"nameZh":"十字驅魔攻擊"},"impositio":{"id":"impositio","name":"Impositio Manus","icon":"pr_impositio","kind":"active","type":"buff","tags":["buff"],"nameZh":"神威祈福"},"magnificat":{"id":"magnificat","name":"Magnificat","icon":"pr_magnificat","kind":"active","type":"buff","tags":["buff"],"nameZh":"聖母之頌歌"},"call_spirits":{"id":"call_spirits","name":"Call Spirits","icon":"mo_callspirits","kind":"active","type":"orbit","tags":["orbit","melee","physical","neutral"],"nameZh":"蓄氣"},"finger_offensive":{"id":"finger_offensive","name":"Finger Offensive","icon":"mo_fingeroffensive","kind":"active","type":"projectile","tags":["melee","projectile","single","physical","neutral"],"nameZh":"彈指神通"},"chain_combo":{"id":"chain_combo","name":"Chain Combo","icon":"mo_chaincombo","kind":"active","type":"single","tags":["melee","single","burst","physical","neutral"],"nameZh":"連環全身掌"},"combo_finish":{"id":"combo_finish","name":"Combo Finish","icon":"mo_combofinish","kind":"active","type":"aoe","tags":["melee","area","physical","neutral"],"nameZh":"猛龍誇強"},"fury":{"id":"fury","name":"Fury","icon":"mo_explosionspirits","kind":"active","type":"buff","tags":["buff"],"nameZh":"爆氣"},"asura_strike":{"id":"asura_strike","name":"Asura Strike","icon":"mo_extremityfist","kind":"active","type":"single","tags":["melee","single","physical","neutral"],"nameZh":"阿修羅霸凰拳"},"sonic_blow":{"id":"sonic_blow","name":"Sonic Blow","icon":"as_sonicblow","kind":"active","type":"single","tags":["melee","single","burst","physical","neutral"],"nameZh":"音速投擲"},"grimtooth":{"id":"grimtooth","name":"Grimtooth","icon":"as_grimtooth","kind":"active","type":"aoe","tags":["melee","area","physical","neutral"],"nameZh":"無影之牙"},"enchant_poison":{"id":"enchant_poison","name":"Enchant Poison","icon":"as_enchantpoison","kind":"active","type":"buff","tags":["buff"],"nameZh":"塗毒"},"venom_dust":{"id":"venom_dust","name":"Venom Dust","icon":"as_venomdust","kind":"active","type":"zone","tags":["ground","area","persistent","physical","neutral"],"nameZh":"病毒散撥"},"cloaking":{"id":"cloaking","name":"Cloaking","icon":"as_cloaking","kind":"active","type":"buff","tags":["buff"],"nameZh":"偽裝"},"venom_knife":{"id":"venom_knife","name":"Venom Knife","icon":"as_venomknife","kind":"active","type":"projectile","tags":["melee","projectile","single","physical","neutral"],"nameZh":"毒刃"},"back_stab":{"id":"back_stab","name":"Back Stab","icon":"rg_backstap","kind":"active","type":"single","tags":["melee","single","physical","neutral"],"nameZh":"背刺"},"raid":{"id":"raid","name":"Raid","icon":"rg_raid","kind":"active","type":"aoe","tags":["aura","area","physical","neutral"],"nameZh":"潛擊"},"divest_weapon":{"id":"divest_weapon","name":"Divest Weapon","icon":"rg_stripweapon","kind":"active","type":"control","tags":["aura","single","neutral"],"nameZh":"卸除武器"},"intimidate":{"id":"intimidate","name":"Intimidate","icon":"rg_intimidate","kind":"active","type":"single","tags":["melee","single","physical","neutral"],"nameZh":"脅持"},"steal_coin":{"id":"steal_coin","name":"Steal Coin","icon":"rg_stealcoin","kind":"active","type":"single","tags":["melee","single","physical","neutral"],"nameZh":"偷錢"},"graffiti":{"id":"graffiti","name":"Graffiti","icon":"rg_graffiti","kind":"active","type":"zone","tags":["ground","area","persistent","physical","neutral"],"nameZh":"塗鴉"},"axe_tornado":{"id":"axe_tornado","name":"Axe Tornado","icon":"nc_axetornado","kind":"active","type":"aoe","tags":["aura","area","melee","physical","neutral"],"nameZh":"旋風斧"},"axe_boomerang":{"id":"axe_boomerang","name":"Axe Boomerang","icon":"nc_axeboomerang","kind":"active","type":"projectile","tags":["melee","projectile","pierce","return","physical","neutral"],"nameZh":"回力斧"},"weapon_perfection":{"id":"weapon_perfection","name":"Weapon Perfection","icon":"bs_weaponperfect","kind":"active","type":"buff","tags":["buff"],"nameZh":"無視體型攻擊"},"rush_quake":{"id":"rush_quake","name":"Rush Quake","icon":"mt_rush_quake","kind":"active","type":"aoe","tags":["aura","area","melee","physical","earth"],"nameZh":"衝擊震地"},"greed":{"id":"greed","name":"Greed","icon":"bs_greed","kind":"active","type":"aoe","tags":["aura","area","melee","physical","neutral"],"nameZh":"貪婪"},"ore_discovery":{"id":"ore_discovery","name":"Ore Discovery","icon":"bs_findingore","kind":"active","type":"aoe","tags":["ground","area","melee","physical","earth"],"nameZh":"尋找礦石"},"acid_terror":{"id":"acid_terror","name":"Acid Terror","icon":"am_acidterror","kind":"active","type":"projectile","tags":["melee","projectile","single","physical","neutral"],"nameZh":"強酸攻擊"},"demonstration":{"id":"demonstration","name":"Demonstration","icon":"am_demonstration","kind":"active","type":"zone","tags":["ground","area","persistent","physical","fire"],"nameZh":"火煙瓶投擲"},"call_homunculus":{"id":"call_homunculus","name":"Call Homunculus","icon":"am_callhomun","kind":"active","type":"orbit","tags":["orbit","melee","physical","neutral"],"nameZh":"生命體召喚"},"summon_flora":{"id":"summon_flora","name":"Summon Flora","icon":"am_cannibalize","kind":"active","type":"zone","tags":["ground","area","persistent","physical","neutral"],"nameZh":"生物調撥"},"potion_pitcher":{"id":"potion_pitcher","name":"Potion Pitcher","icon":"am_potionpitcher","kind":"active","type":"buff","tags":["buff"],"nameZh":"藥水投擲"},"chemical_protection":{"id":"chemical_protection","name":"Chemical Protection","icon":"am_cp_armor","kind":"active","type":"buff","tags":["buff"],"nameZh":"化學保護"},"warmth_sun":{"id":"warmth_sun","name":"Warmth of the Sun","icon":"sg_sun_warm","kind":"active","type":"zone","tags":["aura","area","persistent","melee","physical","fire"],"nameZh":"太陽的溫暖"},"solar_burst":{"id":"solar_burst","name":"Solar Burst","icon":"sj_solarburst","kind":"active","type":"aoe","tags":["melee","area","physical","fire"],"nameZh":"太陽爆發"},"full_moon_kick":{"id":"full_moon_kick","name":"Full Moon Kick","icon":"sj_fullmoonkick","kind":"active","type":"aoe","tags":["aura","area","melee","physical","neutral"],"nameZh":"滿月踢"},"new_moon_kick":{"id":"new_moon_kick","name":"New Moon Kick","icon":"sj_newmoonkick","kind":"active","type":"single","tags":["melee","single","physical","neutral"],"nameZh":"新月踢"},"falling_star":{"id":"falling_star","name":"Falling Star","icon":"sj_fallingstar","kind":"active","type":"multi","tags":["melee","multi","physical","neutral"],"nameZh":"流星墜落"},"union":{"id":"union","name":"Union of the Sun, Moon and Stars","icon":"sg_fusion","kind":"active","type":"buff","tags":["buff"],"nameZh":"太陽和月亮和星星的融合"},"esma":{"id":"esma","name":"Esma","icon":"sl_sma","kind":"active","type":"multi","tags":["ranged_strike","multi","burst","magic","ghost"]},"estin":{"id":"estin","name":"Estin","icon":"sl_stin","kind":"active","type":"aoe","tags":["ranged_strike","area","magic","wind"]},"estun":{"id":"estun","name":"Estun","icon":"sl_stun","kind":"active","type":"single","tags":["ranged_strike","single","magic","neutral"]},"kaizel":{"id":"kaizel","name":"Kaizel","icon":"sl_kaizel","kind":"active","type":"buff","tags":["buff"]},"kaahi":{"id":"kaahi","name":"Kaahi","icon":"sl_kaahi","kind":"active","type":"buff","tags":["buff"]},"kaupe":{"id":"kaupe","name":"Kaupe","icon":"sl_kaupe","kind":"active","type":"buff","tags":["buff"]}},"types":{"single":{"label":"Un objetivo","aspects":["dmg","cd","count","reach"]},"multi":{"label":"Varios objetivos","aspects":["dmg","cd","count"]},"projectile":{"label":"Proyectil","aspects":["dmg","cd","count","targets","pierce","speed","area"]},"aoe":{"label":"Área","aspects":["dmg","cd","area","count"]},"control":{"label":"Control","aspects":["cd","area"]},"zone":{"label":"Zona","aspects":["dmg","cd","count","area","duration"]},"orbit":{"label":"Orbital","aspects":["dmg","cd","count","area","speed","duration"]},"buff":{"label":"Buff","aspects":["cd","duration"]}},"aspects":["dmg","cd","area","reach","count","targets","pierce","speed","duration","effect"],"i18n":{"ui":{"Un objetivo":{"es":"Un objetivo","en":"Single target","zh-TW":"單體","pt-BR":"Alvo único"},"Varios objetivos":{"es":"Varios objetivos","en":"Multi target","zh-TW":"多目標","pt-BR":"Vários alvos"},"Proyectil":{"es":"Proyectil","en":"Projectile","zh-TW":"投射物","pt-BR":"Projétil"},"Área":{"es":"Área","en":"Area","zh-TW":"範圍","pt-BR":"Área"},"Control":{"es":"Control","en":"Control","zh-TW":"控制","pt-BR":"Controle"},"Zona":{"es":"Zona","en":"Zone","zh-TW":"區域","pt-BR":"Zona"},"Orbital":{"es":"Orbital","en":"Orbital","zh-TW":"環繞","pt-BR":"Orbital"},"Buff":{"es":"Buff","en":"Buff","zh-TW":"增益","pt-BR":"Buff"},"Activa":{"es":"Activa","en":"Active","zh-TW":"主動","pt-BR":"Ativa"},"Pasiva":{"es":"Pasiva","en":"Passive","zh-TW":"被動","pt-BR":"Passiva"},"Habilidad":{"es":"Habilidad","en":"Skill","zh-TW":"技能","pt-BR":"Habilidade"},"¡NUEVA!":{"es":"¡NUEVA!","en":"NEW!","zh-TW":"新！","pt-BR":"NOVA!"},"¡Level Up!":{"es":"¡Level Up!","en":"Level Up!","zh-TW":"升級！","pt-BR":"Subiu de nível!"},"Elige una habilidad":{"es":"Elige una habilidad","en":"Choose a skill","zh-TW":"選擇技能","pt-BR":"Escolha uma habilidade"},"Mejora una habilidad":{"es":"Mejora una habilidad","en":"Upgrade a skill","zh-TW":"強化技能","pt-BR":"Melhore uma habilidade"},"Habilidades":{"es":"Habilidades","en":"Skills","zh-TW":"技能","pt-BR":"Habilidades"},"Cofre del tesoro":{"es":"Cofre del tesoro","en":"Treasure chest","zh-TW":"寶箱","pt-BR":"Baú do tesouro"},"Efecto más fuerte":{"es":"Efecto más fuerte","en":"Stronger effect","zh-TW":"效果更強","pt-BR":"Efeito mais forte"},"Común":{"es":"Común","en":"Common","zh-TW":"普通","pt-BR":"Comum"},"Poco común":{"es":"Poco común","en":"Uncommon","zh-TW":"優良","pt-BR":"Incomum"},"Raro":{"es":"Raro","en":"Rare","zh-TW":"稀有","pt-BR":"Raro"},"Rara":{"es":"Rara","en":"Rare","zh-TW":"稀有","pt-BR":"Rara"},"Épico":{"es":"Épico","en":"Epic","zh-TW":"史詩","pt-BR":"Épico"},"Épica":{"es":"Épica","en":"Epic","zh-TW":"史詩","pt-BR":"Épica"},"Legendario":{"es":"Legendario","en":"Legendary","zh-TW":"傳說","pt-BR":"Lendário"},"Legendaria":{"es":"Legendaria","en":"Legendary","zh-TW":"傳說","pt-BR":"Lendária"},"Cerrar":{"es":"Cerrar","en":"Close","zh-TW":"關閉","pt-BR":"Fechar"},"Skills":{"es":"Skills","en":"Skills","zh-TW":"技能","pt-BR":"Habilidades"}},"aspect":{"dmg":{"es":"daño","en":"damage","zh-TW":"傷害","pt-BR":"dano"},"cd":{"es":"enfriamiento","en":"cooldown","zh-TW":"冷卻","pt-BR":"recarga"},"area":{"es":"área","en":"area","zh-TW":"範圍","pt-BR":"área"},"reach":{"es":"alcance","en":"reach","zh-TW":"攻擊範圍","pt-BR":"alcance"},"count":{"es":"cantidad","en":"count","zh-TW":"數量","pt-BR":"quantidade"},"targets":{"es":"objetivos","en":"targets","zh-TW":"目標","pt-BR":"alvos"},"pierce":{"es":"probabilidad de perforar","en":"pierce chance","zh-TW":"貫穿機率","pt-BR":"chance de perfurar"},"speed":{"es":"velocidad","en":"speed","zh-TW":"速度","pt-BR":"velocidade"},"duration":{"es":"duración","en":"duration","zh-TW":"持續時間","pt-BR":"duração"},"effect":{"es":"efecto","en":"effect","zh-TW":"效果","pt-BR":"efeito"}},"item":{"Poción de regeneración":{"es":"Poción de regeneración","en":"Regeneration Potion","zh-TW":"回復藥水","pt-BR":"Poção de Regeneração"},"Poción de enfriamiento":{"es":"Poción de enfriamiento","en":"Cooldown Potion","zh-TW":"冷卻藥水","pt-BR":"Poção de Recarga"},"Poción de vida":{"es":"Poción de vida","en":"Life Potion","zh-TW":"生命藥水","pt-BR":"Poção de Vida"},"Poción de armadura":{"es":"Poción de armadura","en":"Armor Potion","zh-TW":"護甲藥水","pt-BR":"Poção de Armadura"},"Poción de área":{"es":"Poción de área","en":"Area Potion","zh-TW":"範圍藥水","pt-BR":"Poção de Área"},"Poción de recolección":{"es":"Poción de recolección","en":"Gathering Potion","zh-TW":"採集藥水","pt-BR":"Poção de Coleta"},"Poción de la avaricia":{"es":"Poción de la avaricia","en":"Potion of Greed","zh-TW":"貪婪藥水","pt-BR":"Poção da Avareza"},"Poción de velocidad":{"es":"Poción de velocidad","en":"Speed Potion","zh-TW":"速度藥水","pt-BR":"Poção de Velocidade"},"Poción de casteo":{"es":"Poción de casteo","en":"Casting Potion","zh-TW":"詠唱藥水","pt-BR":"Poção de Conjuração"},"Poción de alcance":{"es":"Poción de alcance","en":"Reach Potion","zh-TW":"範圍藥水","pt-BR":"Poção de Alcance"},"Poción de daño":{"es":"Poción de daño","en":"Damage Potion","zh-TW":"傷害藥水","pt-BR":"Poção de Dano"},"Elixir de crítico":{"es":"Elixir de crítico","en":"Critical Elixir","zh-TW":"爆擊秘藥","pt-BR":"Elixir de Crítico"},"Elixir de daño":{"es":"Elixir de daño","en":"Damage Elixir","zh-TW":"傷害秘藥","pt-BR":"Elixir de Dano"},"Elixir de vida":{"es":"Elixir de vida","en":"Life Elixir","zh-TW":"生命秘藥","pt-BR":"Elixir de Vida"},"Elixir de daño crítico":{"es":"Elixir de daño crítico","en":"Critical Damage Elixir","zh-TW":"爆擊傷害秘藥","pt-BR":"Elixir de Dano Crítico"},"Elixir de sorpresa":{"es":"Elixir de sorpresa","en":"Elixir of Surprise","zh-TW":"驚奇秘藥","pt-BR":"Elixir Surpresa"},"Elixir de daño en el tiempo":{"es":"Elixir de daño en el tiempo","en":"Damage over Time Elixir","zh-TW":"持續傷害秘藥","pt-BR":"Elixir de Dano Contínuo"},"Elixir de Flee":{"es":"Elixir de Flee","en":"Flee Elixir","zh-TW":"迴避秘藥","pt-BR":"Elixir de Esquiva"},"Elixir de casteo":{"es":"Elixir de casteo","en":"Casting Elixir","zh-TW":"詠唱秘藥","pt-BR":"Elixir de Conjuração"},"Elixir de área":{"es":"Elixir de área","en":"Area Elixir","zh-TW":"範圍秘藥","pt-BR":"Elixir de Área"},"Elixir de armadura":{"es":"Elixir de armadura","en":"Armor Elixir","zh-TW":"護甲秘藥","pt-BR":"Elixir de Armadura"},"Bendición de daño":{"es":"Bendición de daño","en":"Blessing of Damage","zh-TW":"傷害祝福","pt-BR":"Bênção de Dano"},"Bendición de regeneración":{"es":"Bendición de regeneración","en":"Blessing of Regeneration","zh-TW":"回復祝福","pt-BR":"Bênção de Regeneração"},"Bendición de enfriamiento":{"es":"Bendición de enfriamiento","en":"Blessing of Cooldown","zh-TW":"冷卻祝福","pt-BR":"Bênção de Recarga"},"Bendición vampírica":{"es":"Bendición vampírica","en":"Vampiric Blessing","zh-TW":"吸血祝福","pt-BR":"Bênção Vampírica"},"Bendición de doble casteo":{"es":"Bendición de doble casteo","en":"Blessing of Double Cast","zh-TW":"雙重詠唱祝福","pt-BR":"Bênção de Conjuração Dupla"},"Bendición de la abundancia":{"es":"Bendición de la abundancia","en":"Blessing of Plenty","zh-TW":"豐饒祝福","pt-BR":"Bênção da Abundância"},"Bendición de casteo":{"es":"Bendición de casteo","en":"Blessing of Casting","zh-TW":"詠唱祝福","pt-BR":"Bênção de Conjuração"},"Bendición de área":{"es":"Bendición de área","en":"Blessing of Area","zh-TW":"範圍祝福","pt-BR":"Bênção de Área"},"Bendición de alcance":{"es":"Bendición de alcance","en":"Blessing of Reach","zh-TW":"範圍祝福","pt-BR":"Bênção do Alcance"},"Bendición de la sabiduría":{"es":"Bendición de la sabiduría","en":"Blessing of Wisdom","zh-TW":"智慧祝福","pt-BR":"Bênção da Sabedoria"},"Plato de STR":{"es":"Plato de STR","en":"STR Dish","zh-TW":"STR 料理","pt-BR":"Prato de FOR"},"Plato de AGI":{"es":"Plato de AGI","en":"AGI Dish","zh-TW":"AGI 料理","pt-BR":"Prato de AGI"},"Plato de VIT":{"es":"Plato de VIT","en":"VIT Dish","zh-TW":"VIT 料理","pt-BR":"Prato de VIT"},"Plato de INT":{"es":"Plato de INT","en":"INT Dish","zh-TW":"INT 料理","pt-BR":"Prato de INT"},"Plato de DEX":{"es":"Plato de DEX","en":"DEX Dish","zh-TW":"DEX 料理","pt-BR":"Prato de DES"},"Plato de LUK":{"es":"Plato de LUK","en":"LUK Dish","zh-TW":"LUK 料理","pt-BR":"Prato de SOR"},"Deity de la avaricia":{"es":"Deity de la avaricia","en":"Deity of Avarice","zh-TW":"貪婪之神","pt-BR":"Divindade da Avareza"},"Deity de la guerra":{"es":"Deity de la guerra","en":"Deity of War","zh-TW":"戰爭之神","pt-BR":"Divindade da Guerra"},"Deity del verdugo":{"es":"Deity del verdugo","en":"Deity of the Executioner","zh-TW":"處刑之神","pt-BR":"Divindade do Carrasco"},"Deity de la fuerza":{"es":"Deity de la fuerza","en":"Deity of Might","zh-TW":"力量之神","pt-BR":"Divindade do Poder"},"Deity del pensamiento":{"es":"Deity del pensamiento","en":"Deity of Thought","zh-TW":"思想之神","pt-BR":"Divindade do Pensamento"},"Deity de la memoria":{"es":"Deity de la memoria","en":"Deity of Memory","zh-TW":"記憶之神","pt-BR":"Divindade da Memória"},"Deity del baluarte":{"es":"Deity del baluarte","en":"Deity of the Bulwark","zh-TW":"堡壘之神","pt-BR":"Divindade do Baluarte"},"Deity del viento":{"es":"Deity del viento","en":"Deity of the Wind","zh-TW":"疾風之神","pt-BR":"Divindade do Vento"},"Deity de la vida":{"es":"Deity de la vida","en":"Deity of Life","zh-TW":"生命之神","pt-BR":"Divindade da Vida"},"Deity de la sabiduría":{"es":"Deity de la sabiduría","en":"Deity of Wisdom","zh-TW":"智慧之神","pt-BR":"Divindade da Sabedoria"},"Deity de la atadura":{"es":"Deity de la atadura","en":"Deity of Binding","zh-TW":"束縛之神","pt-BR":"Divindade da Imobilização"},"Deity del engaño":{"es":"Deity del engaño","en":"Deity of Trickery","zh-TW":"詭計之神","pt-BR":"Divindade da Astúcia"},"Deity del tormento":{"es":"Deity del tormento","en":"Deity of Torment","zh-TW":"折磨之神","pt-BR":"Divindade do Tormento"}}},"jobAliases":{"swordsman":["Espadachín","Espadachin","Swordman"],"mage":["Mago"],"archer":["Arquero","Arquera"],"acolyte":["Acólito","Acolito"],"thief":["Ladrón","Ladron"],"merchant":["Comerciante"],"taekwon":["Taekwon Boy","跆拳天君"],"ninja":[],"gunslinger":["Pistolero","Gunslinger"],"knight":["Caballero"],"crusader":["Cruzado","Cruzada"],"wizard":["Brujo","Bruja","Hechicero"],"sage":["Sabio","Sabia"],"hunter":["Cazador","Cazadora"],"bard":["Bardo","Dancer","Bailarín","Bailarin","Bailarina","吟遊詩人","舞孃"],"priest":["Sacerdote","Sacerdotisa"],"monk":["Monje","Monja"],"assassin":["Asesino","Asesina"],"rogue":["Pícaro","Picaro","Pícara"],"blacksmith":["Herrero","Herrera"],"alchemist":["Alquimista"],"star_gladiator":["Gladiador Estelar","Star Gladiator","拳聖"],"soul_linker":["Encadenador de Almas","Soul Linker","悟靈士"]},"namesZh":{"Novice":"初心者","Swordsman":"劍士","Mage":"魔法師","Archer":"弓箭手","Acolyte":"服事","Thief":"盜賊","Merchant":"商人","Taekwon":"跆拳少年","Ninja":"忍者","Gunslinger":"神槍手","Knight":"騎士","Crusader":"十字軍","Wizard":"巫師","Sage":"賢者","Hunter":"獵人","Bard":"吟遊詩人","Dancer":"舞孃","Priest":"祭司","Monk":"武僧","Assassin":"刺客","Rogue":"流氓","Blacksmith":"鐵匠","Alchemist":"鍊金術師","Star Gladiator":"拳聖","Soul Linker":"悟靈士","Bash":"狂擊","Magnum Break":"怒爆","Sword Dance":"劍舞","Provoke":"挑釁","Demoralizing Shout":"降低士氣的吶喊","Shield Bash":"盾牌衝擊","Sword Mastery":"單手劍使用熟練度","Two-Hand Mastery":"雙手劍使用熟練度","Endure":"霸體","Increase HP Recovery":"快速恢復","Auto Berserk":"狂暴狀態","Fatal Blow":"攻擊弱點","Two-Hand Quicken":"雙手劍攻擊速度增加","Berserk":"狂暴","Moving HP Recovery":"移動時恢復HP","Shield Mastery":"盾牌精通","Fire Bolt":"火箭術","Cold Bolt":"冰箭術","Lightning Bolt":"雷擊術","Soul Strike":"聖靈召喚","Napalm Beat":"心靈爆破","Napalm Vulcan":"念力連擊","Fire Wall":"火焰之壁","Frost Diver":"冰凍術","Sight":"火狩","Sightrasher":"火之獵殺","Thunderstorm":"雷爆術","Increase SP Recovery":"禪心","Energy Coat":"能量外套","Stone Curse":"石化術","Firestorm":"火焰風暴","Deep Freeze":"深度冰凍","Double Casting":"雙重施法","Clearcast":"清晰施法","Electrical Mayhem":"電力混沌","Fire Ball":"火球術","Chain Lightning":"連鎖閃電","Soul Drain":"吸魂術","Double Strafe":"二連矢","Arrow Shower":"箭雨","Arrow Rain":"箭矢暴雨","Arcane Shot":"奧術射擊","Arrow Repel":"衝鋒箭","Improve Concentration":"心神凝聚","Arrow Crafting":"製作箭","Sharp Shooting":"銳利射擊","True Sight":"狙殺瞄準","Wind Walk":"風之步","Heal":"治癒術","Holy Light":"神聖之光","Decrease AGI":"緩速術","Blessing":"天使之賜福","Increase AGI":"加速術","Increase AGI+":"加速術+","Divine Protection":"天使之護","Demon Bane":"天使之擊","Mace Mastery":"權杖使用熟練度","Iron Hand":"鐵沙掌","Triple Attack":"六合拳","Investigate":"浸透勁","Mana Recharge":"魔力回充","Duple Light":"雙重之光","Retribution":"懲戒","Envenom":"施毒","Sand Attack":"噴砂","Throw Stone":"投擲石頭","Hiding":"隱匿","Poison Bomb":"毒藥瓶","Shadowstep":"影步","Fan of Knives":"飛刀扇","Caltrops":"撒菱","Double Attack":"二刀連擊","Improve Dodge":"殘影","Steal":"偷竊","Enchant Deadly Poison":"致命塗毒","Venom Splasher":"毒性感染","Strip Armor":"卸除鎧甲","Gangster Paradise":"流氓天國","Adrenaline Rush":"速度激發","Reject Sword":"劍刃反彈","Preserve":"自由保護","Dimension Door":"次元之門","Mammonite":"金錢攻擊","Cart Revolution":"手推車攻擊","Crazy Uproar":"大聲吶喊","Overcharge":"高價賣出","Discount":"低價買進","Enlarge Weight Limit":"負重量上升","Zeny Rain":"金幣雨","Cart Rush":"手推車衝撞","Vending":"露天商店","Pushcart":"手推車使用","Cart Termination":"手推車終結技","Weapon Research":"武器研究","Hilt Binding":"武器保有","Hammer Fall":"大地之擊","Over Thrust":"凶砍","Meltdown":"野蠻凶砍","Maximize Power":"武器值最大化","Tornado Kick":"迴旋踢","Heel Drop":"砸踢","Roundhouse":"轉身踢","Counter Kick":"還擊踢","Sprint":"跑步","Peaceful Break":"平安的休息","Mild Wind":"溫和之風","Warm Wind":"溫暖的風","Feeling":"感覺","Devil":"太陽和月亮和星星的惡魔","Taekwon Mission":"太拳任務","Comfort":"平安感","Knowledge":"知識","Soul Link":"靈魂連結","Throw Shuriken":"投擲飛鏢","Throw Kunai":"投擲飛刀","Throw Huuma Shuriken":"投擲風魔飛鏢","Flaming Petals":"火炎花","Lightning Strike":"雷擊碎","Dagger Throwing Practice":"飛刀修練","Cicada Skin Shed":"金蟬脫殼","Soul":"靈魂","Blaze Shuriken":"烈焰手裡劍","Final Strike":"一閃擊","Triple Action":"三連攻擊","Rapid Shower":"五連擊","Spread Attack":"火力全開","Ground Drift":"四面埋伏","Tracking":"百步穿楊","Single Action":"單槍射擊","Snake Eye":"瞄準之眼","Chain Action":"連鎖衝擊","Madness Canceller":"瘋狂凱斯樂","Fling":"投擲硬幣","Gatling Fever":"格林狂熱","Adjustment":"終極閃躲","Heat Barrel":"熱槍管","Fire Dance":"火之舞","Full Buster":"全面破壞","Dust":"彈片四射","Slug Shot":"獨頭彈射擊","Platinum Alter":"白金祭壇","Mass Spiral":"螺旋射擊","Banishing Buster":"驅逐爆破","Magical Bullet":"魔術彈","Fallen Angel":"墮天使","Hammer of God":"神之鎚","Riding":"騎乘術","Cavalier Mastery":"騎兵修練","Brandish Spear":"騎乘攻擊","Charge Attack":"衝鋒攻擊","Pierce":"連刺攻擊","Spear Boomerang":"投擲長矛攻擊","Counter Attack":"反擊","Bowling Bash":"怪物互擊","Spear Quicken":"長矛加速術","Spear Mastery":"長矛使用熟練度","Spiral Pierce":"螺旋擊刺","Grand Peco":"神聖大嘴鳥","Shield Charge":"盾擊","Holy Cross":"聖十字攻擊","Grand Cross":"聖錘 十字星","Shield Boomerang":"迴旋盾擊","Auto Guard":"自動防禦","Faith":"信任","Gospel":"聖音","Defender":"光之盾","Reflect Shield":"反射盾","Providence":"神祐之光","Devotion":"犧牲","Meteor Storm":"隕石術","Fire Pillar":"火柱攻擊","Frost Nova":"霜凍之術","Storm Gust":"暴風雪","Jupitel Thunder":"雷鳴術","Lord of Vermilion":"怒雷強擊","Volcano":"火元素領域","Deluge":"水元素領域","Earth Spike":"地震術","Heaven's Drive":"崩裂術","Hindsight":"自動念咒","Abracadabra":"隨機技能","Advanced Book":"進化之書","Dragonology":"龍知識","Spell Breaker":"念咒拆除","Soul Burn":"靈魂燃燒","Blitz Beat":"閃電衝擊","Detecting":"獵鷹尋敵","Claymore Trap":"爆散陷阱","Sandman":"睡魔陷阱","Beast Strafing":"動物猛擊","Phantasmic Arrow":"幻影箭","Falconry Mastery":"馴鷹術","Falcon Assault":"獵鷹突擊","Trap Research":"陷阱研究","Ankle Snare":"定位陷阱","Freezing Trap":"霜凍陷阱","Blast Mine":"定時爆炸陷阱","Beast Bane":"動物殺手","Arrow Vulcan":"奧義箭亂舞","Dissonance":"不諧和音","Lullaby":"搖籃曲","A Drum on the Battlefield":"戰鼓震天","Invulnerable Siegfried":"不死神齊格弗里德","Musical Lesson":"操控樂器","Dancing Lesson":"練習舞蹈","Wink of Charm":"眨眼之誘","Service for You":"為您服務","Eternal Chaos":"永遠的混沌","A Poem of Bragi":"布萊奇之詩","Apple of Idun":"伊登的蘋果","Assassin Cross of Sunset":"刺客的黃昏","A Whistle":"吹口哨","Mr. Kim A Rich Man":"經驗值倍增","Frost Joke":"冷笑話","Encore":"安可","Loki's Veil":"洛奇的悲鳴","Sanctuary":"光耀之堂","Safety Wall":"暗之障壁","Benedictio":"聖母之祈福","Magnus Exorcismus":"十字驅魔攻擊","Impositio Manus":"神威祈福","Magnificat":"聖母之頌歌","Call Spirits":"蓄氣","Finger Offensive":"彈指神通","Chain Combo":"連環全身掌","Combo Finish":"猛龍誇強","Fury":"爆氣","Asura Strike":"阿修羅霸凰拳","Dodge":"移花接木","Steel Body":"金剛不壞","Body Relocation":"弓身彈影","Blade Stop":"真劍百破道","Ki Translation":"振氣注入","Gate of Hell":"地獄之門","Sonic Blow":"音速投擲","Grimtooth":"無影之牙","Enchant Poison":"塗毒","Venom Dust":"病毒散撥","Cloaking":"偽裝","Venom Knife":"毒刃","Katar Mastery":"拳刃修練","Sonic Acceleration":"超音速投擲","Meteor Assault":"黑暗瞬間","Poison React":"毒性反彈","Soul Destroyer":"心靈震波","Back Stab":"背刺","Raid":"潛擊","Divest Weapon":"卸除武器","Intimidate":"脅持","Steal Coin":"偷錢","Graffiti":"塗鴉","Gangster":"惡棍","Snatcher":"強奪","Plagiarism":"抄襲","Full Strip":"所有卸除","Tunnel Drive":"潛遁","Axe Tornado":"旋風斧","Axe Boomerang":"回力斧","Weapon Perfection":"無視體型攻擊","Rush Quake":"衝擊震地","Greed":"貪婪","Ore Discovery":"尋找礦石","Skin Tempering":"強化火屬性","Weapon Repair":"武器修理","Acid Terror":"強酸攻擊","Demonstration":"火煙瓶投擲","Call Homunculus":"生命體召喚","Summon Flora":"生物調撥","Potion Pitcher":"藥水投擲","Chemical Protection":"化學保護","Alchemy":"融合試驗","Biotechnology":"生命工學研究","Cultivation":"培養","Pharmacy":"配藥","Twilight Alchemy":"暮光鍊金","Full Chemical Protection":"所有化學武器保護","Warmth of the Sun":"太陽的溫暖","Solar Burst":"太陽爆發","Full Moon Kick":"滿月踢","New Moon Kick":"新月踢","Falling Star":"流星墜落","Union of the Sun, Moon and Stars":"太陽和月亮和星星的融合","Knowledge of the Stars":"太陽和月亮和星星的知識","Spirit of the Knight":"騎士的靈魂","Spirit of the Wizard":"巫師的靈魂","Spirit of the Priest":"祭司的靈魂","Spirit of the Hunter":"獵人的靈魂","Spirit of the Star":"拳聖的靈魂","Spirit of the Monk":"武道家的靈魂","Spirit of the Crusader":"十字軍的靈魂","Spirit of the Assassin":"刺客的靈魂","Spirit of the Sage":"賢者的靈魂","Spirit of the Blacksmith":"鐵匠的靈魂","Spirit of the Alchemist":"鍊金術師的靈魂","Spirit of the Bard and Dancer":"吟遊詩人和舞孃的靈魂","Spirit of the Soul Linker":"悟靈士的靈魂"},"maxSkills":{"first":4,"second":5},"slots":[{"id":"potion","name":"Poción","i18n":{"es":"Poción","en":"Potion","zh-TW":"藥水","pt-BR":"Poção"}},{"id":"elixir","name":"Elixir","i18n":{"es":"Elixir","en":"Elixir","zh-TW":"秘藥","pt-BR":"Elixir"}},{"id":"blessing","name":"Bendición","i18n":{"es":"Bendición","en":"Blessing","zh-TW":"祝福","pt-BR":"Bênção"}},{"id":"dish","name":"Plato","i18n":{"es":"Plato","en":"Dish","zh-TW":"料理","pt-BR":"Prato"}},{"id":"deity","name":"Deity","i18n":{"es":"Deity","en":"Deity","zh-TW":"神祇","pt-BR":"Divindade"}}],"runItems":[{"id":"p_regen","slot":"potion","name":"Poción de regeneración","icon":501,"img":"runitems/p_regen.png"},{"id":"p_cd","slot":"potion","name":"Poción de enfriamiento","icon":656,"img":"runitems/p_cd.png"},{"id":"p_hp","slot":"potion","name":"Poción de vida","icon":504,"img":"runitems/p_hp.png"},{"id":"p_armor","slot":"potion","name":"Poción de armadura","icon":502,"img":"runitems/p_armor.png"},{"id":"p_area","slot":"potion","name":"Poción de área","icon":505,"img":"runitems/p_area.png"},{"id":"p_pickup","slot":"potion","name":"Poción de recolección","icon":545,"img":"runitems/p_pickup.png"},{"id":"p_greed","slot":"potion","name":"Poción de la avaricia","icon":546,"img":"runitems/p_greed.png"},{"id":"p_speed","slot":"potion","name":"Poción de velocidad","icon":12016,"img":"runitems/p_speed.png"},{"id":"p_cast","slot":"potion","name":"Poción de casteo","icon":547,"img":"runitems/p_cast.png"},{"id":"p_reach","slot":"potion","name":"Poción de alcance","icon":503,"img":"runitems/p_reach.png"},{"id":"p_dmg","slot":"potion","name":"Poción de daño","icon":657,"img":"runitems/p_dmg.png"},{"id":"e_crit","slot":"elixir","name":"Elixir de crítico","icon":645,"img":"runitems/e_crit.png"},{"id":"e_dmg","slot":"elixir","name":"Elixir de daño","icon":7308,"img":"runitems/e_dmg.png"},{"id":"e_hp","slot":"elixir","name":"Elixir de vida","icon":607,"img":"runitems/e_hp.png"},{"id":"e_critdmg","slot":"elixir","name":"Elixir de daño crítico","icon":522,"img":"runitems/e_critdmg.png"},{"id":"e_surprise","slot":"elixir","name":"Elixir de sorpresa","icon":12259,"img":"runitems/e_surprise.png"},{"id":"e_dot","slot":"elixir","name":"Elixir de daño en el tiempo","icon":506,"img":"runitems/e_dot.png"},{"id":"e_dodge","slot":"elixir","name":"Elixir de Flee","icon":525,"img":"runitems/e_dodge.png"},{"id":"e_cast","slot":"elixir","name":"Elixir de casteo","icon":12299,"img":"runitems/e_cast.png"},{"id":"e_area","slot":"elixir","name":"Elixir de área","icon":12114,"img":"runitems/e_area.png"},{"id":"e_armor","slot":"elixir","name":"Elixir de armadura","icon":526,"img":"runitems/e_armor.png"},{"id":"b_dmg","slot":"blessing","name":"Bendición de daño","icon":12215,"img":"runitems/b_dmg.png"},{"id":"b_regen","slot":"blessing","name":"Bendición de regeneración","icon":12303,"img":"runitems/b_regen.png"},{"id":"b_cd","slot":"blessing","name":"Bendición de enfriamiento","icon":12220,"img":"runitems/b_cd.png"},{"id":"b_lifesteal","slot":"blessing","name":"Bendición vampírica","icon":12279,"img":"runitems/b_lifesteal.png"},{"id":"b_double","slot":"blessing","name":"Bendición de doble casteo","icon":12219,"img":"runitems/b_double.png"},{"id":"b_plenty","slot":"blessing","name":"Bendición de la abundancia","icon":12315,"img":"runitems/b_plenty.png"},{"id":"b_cast","slot":"blessing","name":"Bendición de casteo","icon":717,"img":"runitems/b_cast.png"},{"id":"b_area","slot":"blessing","name":"Bendición de área","icon":715,"img":"runitems/b_area.png"},{"id":"b_reach","slot":"blessing","name":"Bendición de alcance","icon":686,"img":"runitems/b_reach.png"},{"id":"b_wisdom","slot":"blessing","name":"Bendición de la sabiduría","icon":7433,"img":"runitems/b_wisdom.png"},{"id":"d_str","slot":"dish","name":"Plato de STR","icon":12202},{"id":"d_agi","slot":"dish","name":"Plato de AGI","icon":12203},{"id":"d_vit","slot":"dish","name":"Plato de VIT","icon":12207},{"id":"d_int","slot":"dish","name":"Plato de INT","icon":12204},{"id":"d_dex","slot":"dish","name":"Plato de DEX","icon":12205},{"id":"d_luk","slot":"dish","name":"Plato de LUK","icon":12206},{"id":"g_avarice","slot":"deity","name":"Deity de la avaricia","icon":2630},{"id":"g_war","slot":"deity","name":"Deity de la guerra","icon":1530},{"id":"g_executioner","slot":"deity","name":"Deity del verdugo","icon":1413},{"id":"g_might","slot":"deity","name":"Deity de la fuerza","icon":2629},{"id":"g_thought","slot":"deity","name":"Deity del pensamiento","icon":6599},{"id":"g_memory","slot":"deity","name":"Deity de la memoria","icon":6600},{"id":"g_bulwark","slot":"deity","name":"Deity del baluarte","icon":2357},{"id":"g_wind","slot":"deity","name":"Deity del viento","icon":2410},{"id":"g_life","slot":"deity","name":"Deity de la vida","icon":2353},{"id":"g_wisdom","slot":"deity","name":"Deity de la sabiduría","icon":7019},{"id":"g_binding","slot":"deity","name":"Deity de la atadura","icon":7058},{"id":"g_trickery","slot":"deity","name":"Deity del engaño","icon":1262},{"id":"g_torment","slot":"deity","name":"Deity del tormento","icon":2678}]};
@@ -2056,17 +2138,19 @@
   }
 
   // 讀取本地儲存或預設參數
-  let cheatSettings = { godMode: false, damageMult: 1 };
+  let cheatSettings = { godMode: false, hpThreshold: 50, damageMult: 1 };
   try {
     const saved = localStorage.getItem("ro-survivors-custom-cheats");
     if (saved) {
       const parsed = JSON.parse(saved);
       if (typeof parsed.godMode === "boolean") cheatSettings.godMode = parsed.godMode;
+      if (typeof parsed.hpThreshold === "number") cheatSettings.hpThreshold = parsed.hpThreshold;
       if (typeof parsed.damageMult === "number") cheatSettings.damageMult = parsed.damageMult;
     }
   } catch (_) {}
 
   let experimentalGodMode = cheatSettings.godMode;
+  let godModeHpThreshold = cheatSettings.hpThreshold || 50;
   let experimentalDamageMult = cheatSettings.damageMult;
   const DMG_MULTIPLIER_STEPS = [1, 2, 5, 10];
 
@@ -2074,9 +2158,19 @@
     try {
       localStorage.setItem("ro-survivors-custom-cheats", JSON.stringify({
         godMode: experimentalGodMode,
+        hpThreshold: godModeHpThreshold,
         damageMult: experimentalDamageMult
       }));
     } catch (_) {}
+  }
+
+  function togglePauseMode() {
+    if (typeof window.__toggleBotPause === "function") {
+      window.__toggleBotPause();
+    } else {
+      window.__BOT_PAUSED__ = !window.__BOT_PAUSED__;
+      updateVisualStatusBadge();
+    }
   }
 
   function updateVisualStatusBadge() {
@@ -2086,15 +2180,33 @@
         panel = document.createElement("div");
         panel.id = "ros-control-panel";
         panel.style.position = "fixed";
-        panel.style.top = "12px";
-        panel.style.right = "12px";
-        panel.style.zIndex = "99999";
+        panel.style.top = "14px";
+        panel.style.left = "14px";
+        panel.style.zIndex = "9999999";
         panel.style.display = "flex";
         panel.style.gap = "8px";
         panel.style.alignItems = "center";
         panel.style.userSelect = "none";
 
-        // 按鈕 1: 無敵開關
+        // 按鈕 1: F2 暫停/恢復開關 (常駐統合於頂部面板第一位，永不遺失)
+        const btnPause = document.createElement("button");
+        btnPause.id = "ros-btn-pause";
+        btnPause.title = "點擊或按 F2 暫停 / 恢復 BOT 自動掛機運作";
+        btnPause.style.padding = "6px 14px";
+        btnPause.style.borderRadius = "20px";
+        btnPause.style.fontSize = "12px";
+        btnPause.style.fontFamily = "Nunito, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+        btnPause.style.fontWeight = "bold";
+        btnPause.style.cursor = "pointer";
+        btnPause.style.transition = "all 0.2s ease";
+        btnPause.style.boxShadow = "0 2px 8px rgba(0,0,0,0.3)";
+        btnPause.onclick = (e) => {
+          e.stopPropagation();
+          togglePauseMode();
+        };
+        panel.appendChild(btnPause);
+
+        // 按鈕 2: 擬真保護開關 (F3)
         const btnGod = document.createElement("button");
         btnGod.id = "ros-btn-god";
         btnGod.title = "點擊或按 F3 快速切換無敵鎖血模式";
@@ -2112,7 +2224,7 @@
         };
         panel.appendChild(btnGod);
 
-        // 按鈕 2: 攻擊倍數開關
+        // 按鈕 3: 攻擊倍數開關 (F4)
         const btnDmg = document.createElement("button");
         btnDmg.id = "ros-btn-dmg";
         btnDmg.title = "點擊或按 F4 循環切換攻擊倍數 (1X -> 2X -> 5X -> 10X)";
@@ -2132,9 +2244,18 @@
 
         document.body.appendChild(panel);
 
-        // 監聽 F3 與 F4 全域熱鍵
+        // 外部聯動回呼：供 Playwright 與原生熱鍵同步
+        window.__ROS_UPDATE_PAUSE_UI__ = (isPaused) => {
+          window.__BOT_PAUSED__ = isPaused;
+          updateVisualStatusBadge();
+        };
+
+        // 監聽 F2 / F3 / F4 全域熱鍵
         window.addEventListener("keydown", (e) => {
-          if (e.key === "F3") {
+          if (e.key === "F2") {
+            e.preventDefault();
+            togglePauseMode();
+          } else if (e.key === "F3") {
             e.preventDefault();
             toggleGodMode();
           } else if (e.key === "F4") {
@@ -2144,22 +2265,48 @@
         });
       }
 
+      // 隱藏舊版獨立 __ro_bot_badge__ 徽章，避免雙重疊加
+      const oldBadge = document.getElementById("__ro_bot_badge__");
+      if (oldBadge) oldBadge.style.display = "none";
+
+      const btnPause = document.getElementById("ros-btn-pause");
       const btnGod = document.getElementById("ros-btn-god");
       const btnDmg = document.getElementById("ros-btn-dmg");
 
+      if (btnPause) {
+        const isPaused = !!window.__BOT_PAUSED__;
+        if (isPaused) {
+          btnPause.style.background = "linear-gradient(135deg, #d97706, #b45309)";
+          btnPause.style.color = "#fffbeb";
+          btnPause.style.border = "1px solid #f59e0b";
+          btnPause.style.boxShadow = "0 0 10px rgba(245, 158, 11, 0.6)";
+          btnPause.innerHTML = `⏸️ BOT: 【已暫停】 <span style='font-size:10px;opacity:0.8;'>(F2)</span>`;
+          btnPause.title = "點擊或按 F2 恢復 BOT 掛機自動運作";
+        } else {
+          btnPause.style.background = "linear-gradient(135deg, #166534, #14532d)";
+          btnPause.style.color = "#dcfce7";
+          btnPause.style.border = "1px solid #4ade80";
+          btnPause.style.boxShadow = "0 2px 6px rgba(0,0,0,0.2)";
+          btnPause.innerHTML = `🟢 BOT: 【運行中】 <span style='font-size:10px;opacity:0.8;'>(F2)</span>`;
+          btnPause.title = "點擊或按 F2 暫停 BOT 掛機自動運作";
+        }
+      }
+
       if (btnGod) {
         if (experimentalGodMode) {
-          btnGod.style.background = "linear-gradient(135deg, #d32f2f, #b71c1c)";
+          btnGod.style.background = "linear-gradient(135deg, #0284c7, #0369a1)";
           btnGod.style.color = "#ffffff";
-          btnGod.style.border = "1px solid #ff7961";
-          btnGod.style.boxShadow = "0 0 10px rgba(244, 67, 54, 0.6)";
-          btnGod.innerHTML = "🛡️ 無敵: 【開啟 ON】 <span style='font-size:10px;opacity:0.8;'>(F3)</span>";
+          btnGod.style.border = "1px solid #38bdf8";
+          btnGod.style.boxShadow = "0 0 10px rgba(14, 165, 233, 0.6)";
+          btnGod.innerHTML = `🛡️ 擬真保護: 【<${godModeHpThreshold}%鎖血】 <span style='font-size:10px;opacity:0.8;'>(F3)</span>`;
+          btnGod.title = `點擊或按 F3 關閉。目前狀態：血量高於 ${godModeHpThreshold}% 正常受傷扣血；低於 ${godModeHpThreshold}% 自動鎖血保命，保留飄紅字與受傷閃紅效果！`;
         } else {
-          btnGod.style.background = "linear-gradient(135deg, #2e7d32, #1b5e20)";
-          btnGod.style.color = "#e8f5e9";
-          btnGod.style.border = "1px solid #81c784";
+          btnGod.style.background = "linear-gradient(135deg, #4b5563, #374151)";
+          btnGod.style.color = "#e5e7eb";
+          btnGod.style.border = "1px solid #6b7280";
           btnGod.style.boxShadow = "0 2px 6px rgba(0,0,0,0.2)";
-          btnGod.innerHTML = "🛡️ 無敵: 【關閉 OFF】 <span style='font-size:10px;opacity:0.8;'>(F3)</span>";
+          btnGod.innerHTML = "🛡️ 擬真保護: 【關閉 OFF】 <span style='font-size:10px;opacity:0.8;'>(F3)</span>";
+          btnGod.title = `點擊或按 F3 開啟複合擬真保護模式 (低於 ${godModeHpThreshold}% 鎖血 + 正常受傷飄紅字)`;
         }
       }
 
@@ -2183,10 +2330,10 @@
 
   function toggleGodMode() {
     experimentalGodMode = !experimentalGodMode;
-    if (combatGame) combatGame.god = experimentalGodMode;
+    if (combatGame) combatGame.god = false; // 保持原生 god 為 false，讓受傷計算與飄紅字正常運算
     saveCheatSettings();
     updateVisualStatusBadge();
-    console.log("[ROS] 🛡️ 無敵模式切換為:", experimentalGodMode ? "開啟 (ON)" : "關閉 (OFF)");
+    console.log("[ROS] 🛡️ 複合擬真保護切換為:", experimentalGodMode ? `開啟 (ON, <${godModeHpThreshold}%鎖血)` : "關閉 (OFF, 正常模式)");
   }
 
   function cycleDamageMult() {
@@ -2204,14 +2351,52 @@
     if (!proto || proto.__rosHooked) return;
     proto.__rosHooked = true;
 
-    // 1. 攔截受傷核心 hurtPlayer (RO Survivors 原生受傷函式)
+    // 0. 核心防禦：阻斷官方反外掛 springTrap 陷阱 (徹底杜絕 MVP BOSS 圍攻與 onBanhammer 處罰)
+    if (typeof proto.springTrap === "function") {
+      proto.springTrap = function () {
+        console.warn("[ROS] 🛡️ 官方 springTrap 陷阱已成功攔截阻斷！已阻止 MVP BOSS 圍攻與檢測處罰。");
+        return;
+      };
+    }
+
+    // 1. 攔截受傷核心 hurtPlayer (複合擬真保護模式：血量>門檻正常扣血飄字，血量<=門檻鎖血防致死)
     if (typeof proto.hurtPlayer === "function") {
       const origHurtPlayer = proto.hurtPlayer;
-      proto.hurtPlayer = function (e, t, a) {
-        if (experimentalGodMode || this.god) {
-          return; // 受到怪物攻擊完全免疫扣血，傷害歸零
+      proto.hurtPlayer = function (e, t, s) {
+        if (!experimentalGodMode) {
+          return origHurtPlayer.call(this, e, t, s);
         }
-        return origHurtPlayer.call(this, e, t, a);
+
+        const maxHp = (this.stats && typeof this.stats.maxHp === "number") ? this.stats.maxHp : 100;
+        const threshold = Math.round(maxHp * (godModeHpThreshold / 100));
+
+        // 若當前血量高於門檻 (如 50%)，正常承受傷害扣血，但單次傷害不致使血量跌破門檻
+        if (this.hp > threshold) {
+          origHurtPlayer.call(this, e, t, s);
+          if (this.hp < threshold) {
+            this.hp = threshold;
+          }
+          if (this.player) this.player.dead = false;
+          return;
+        }
+
+        // 血量已 <= 門檻 (如 50%)，觸發保命鎖血：絕不扣血、絕不致死
+        this.hp = Math.max(this.hp, threshold, 1);
+        if (this.player) {
+          this.player.dead = false;
+          this.player.hurtFlash = 150; // 觸發角色受傷閃紅特效
+          if (typeof this.player.onPlayerHit === "function") {
+            try { this.player.onPlayerHit(t); } catch (_) {}
+          }
+        }
+
+        // 視覺浮動傷害飄紅字：依然跳出真實受傷數字
+        try {
+          const dmgAmount = Math.max(1, Math.round(typeof e === "number" ? e : 10));
+          if (typeof this.addNumber === "function" && this.player) {
+            this.addNumber(dmgAmount, this.player.x, this.player.y, 90, 16732240, 1.4);
+          }
+        } catch (_) {}
       };
     }
 
@@ -2244,17 +2429,10 @@
       proto.advance = function (e) {
         try {
           if (this && this.state === "playing") {
-            // 同步原生遊戲引擎的 god 旗標
-            if (experimentalGodMode) {
-              this.god = true;
-              if (this.stats && typeof this.stats.maxHp === "number") {
-                this.hp = this.stats.maxHp;
-              }
-              if (this.player) {
-                this.player.dead = false;
-              }
-            } else {
-              this.god = false;
+            // 擬真保護模式下保持原生 god 為 false，讓受傷計算與飄紅字正常運算
+            this.god = false;
+            if (this.player && experimentalGodMode) {
+              this.player.dead = false;
             }
             rosSteer(this);
           }
@@ -6428,12 +6606,23 @@ button.wk-job small{ font-size:10px; color:var(--ro-muted,#6c7896); text-align:c
       getStore: () => store,
       getCombatGame: () => combatGame,
       isCombatActive: () => isCombatActive(),
-      setGodMode: (enabled) => {
+      setGodMode: (enabled, threshold) => {
         experimentalGodMode = !!enabled;
-        if (combatGame) combatGame.god = experimentalGodMode;
+        if (typeof threshold === "number" && threshold > 0) {
+          godModeHpThreshold = threshold;
+        }
+        if (combatGame) combatGame.god = false;
         saveCheatSettings();
         updateVisualStatusBadge();
-        console.log("[ROS] God mode set to:", experimentalGodMode);
+        console.log("[ROS] 擬真保護模式 set to:", experimentalGodMode, "門檻:", godModeHpThreshold + "%");
+      },
+      setHpThreshold: (threshold) => {
+        if (typeof threshold === "number" && threshold > 0) {
+          godModeHpThreshold = threshold;
+          saveCheatSettings();
+          updateVisualStatusBadge();
+          console.log("[ROS] 擬真保護門檻 set to:", godModeHpThreshold + "%");
+        }
       },
       setDamageMultiplier: (mult) => {
         experimentalDamageMult = Math.max(1, Number(mult) || 1);
@@ -6441,7 +6630,7 @@ button.wk-job small{ font-size:10px; color:var(--ro-muted,#6c7896); text-align:c
         updateVisualStatusBadge();
         console.log("[ROS] Damage multiplier set to:", experimentalDamageMult);
       },
-      getCheatsStatus: () => ({ godMode: experimentalGodMode, damageMult: experimentalDamageMult }),
+      getCheatsStatus: () => ({ godMode: experimentalGodMode, hpThreshold: godModeHpThreshold, damageMult: experimentalDamageMult }),
       updateBadge: () => updateVisualStatusBadge()
     };
     if (document.body) updateVisualStatusBadge();
