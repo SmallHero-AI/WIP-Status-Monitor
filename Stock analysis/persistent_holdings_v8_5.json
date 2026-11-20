@@ -53,12 +53,6 @@
         "type": "short",
         "strategy": "雙保險超買：BIAS超買+布林上軌觸及 & RSI超賣(RSI<30)回補"
     },
-    "2453_short": {
-        "code": "2453",
-        "name": "凌群",
-        "type": "short",
-        "strategy": "極度超買共振 (BIAS+RSI+MFI) & RSI超賣(RSI<30)回補"
-    },
     "2382_long": {
         "code": "2382",
         "name": "廣達",
@@ -70,5 +64,29 @@
         "name": "兆勁",
         "type": "long",
         "strategy": "極度超跌共振 (BIAS+RSI+MFI) & 8%停利 / 8%停損 (精配型)"
+    },
+    "1708_long": {
+        "code": "1708",
+        "name": "東鹼",
+        "type": "long",
+        "strategy": "雙保險超跌：BIAS超賣+布林下軌觸及 & RSI過熱(RSI>70)離場"
+    },
+    "1325_long": {
+        "code": "1325",
+        "name": "恆大",
+        "type": "long",
+        "strategy": "雙保險超跌：BIAS超賣+布林下軌觸及 & 12%停利 / 6%停損 (積極型)"
+    },
+    "2363_long": {
+        "code": "2363",
+        "name": "矽統",
+        "type": "long",
+        "strategy": "雙保險超跌：BIAS超賣+布林下軌觸及 & MACD柱狀體縮小離場"
+    },
+    "5546_short": {
+        "code": "5546",
+        "name": "永固-KY",
+        "type": "short",
+        "strategy": "跌破樞軸(Pivot)+RSI轉弱 & 8%停利 / 8%停損 (精配型)"
     }
 }
